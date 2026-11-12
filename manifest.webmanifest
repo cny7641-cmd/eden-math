@@ -1,0 +1,11 @@
+{
+  "name": "이든수학 업무관리",
+  "short_name": "이든수학",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F5F6FB",
+  "theme_color": "#1D5FBF",
+  "lang": "ko",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
