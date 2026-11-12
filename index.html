@@ -1003,7 +1003,8 @@ const KIND_T = { A: '수업교재', B: '외부교재', C: '기출' };
 const paperKey = (c, n) => { const i = COURSES.indexOf(c); if (c === '1-1') return +n === 1 ? '1-1#1' : (+n === 2 ? '1-1#2' : c); return +n === 1 && i > 0 ? COURSES[i - 1] : c; };
 const qKindMap = (c, n) => { const m = {}; let q = 1; (PAPERK[paperKey(c, n)] || []).forEach(([cc, a, b, k, x]) => { [['A', a], ['B', b], ['C', k], ['X', x || 0]].forEach(([kd, n]) => { for (let i = 0; i < n; i++) m[q++] = { k: kd, c: cc }; }); }); return m; };
 function paperSections(c, n) { let f = 1; return (PAPER[paperKey(c, n)] || [[c, 20]]).map(([cc, n]) => { const x = { c: cc, f, t: f + n - 1 }; f += n; return x; }); }
-const secDefOf = (cls, n) => { const d = S.cfg && S.cfg.secDef; if (!d || !cls) return null; const nn = d._n || {}; const v = (nn[cls.id] || {})[n] || (nn.all || {})[n] || d[cls.id] || d.all; return Array.isArray(v) && v.length ? v : null; };
+const spSecBuiltin = (cls, n) => cls && /^함수특강/.test(cls.name || '') ? (+n === 1 ? [{ c: '일차함수', f: 1, t: 10 }, { c: '이차함수', f: 11, t: 20 }] : (+n === 2 || +n === 3) ? [{ c: '일차함수', f: 1, t: 20 }] : null) : null;
+const secDefOf = (cls, n) => { const d = S.cfg && S.cfg.secDef; let v = null; if (d && cls) { const nn = d._n || {}; v = (nn[cls.id] || {})[n] || (nn.all || {})[n] || d[cls.id] || d.all; } if (!Array.isArray(v) || !v.length) v = spSecBuiltin(cls, n); return Array.isArray(v) && v.length ? v : null; };
 const parseNs = t => { const out = new Set(); String(t || '').split(/[,\s]+/).filter(Boolean).forEach(p => { const m = p.match(/^(\d+)\s*[-~]\s*(\d+)$/); if (m) { for (let i = +m[1]; i <= Math.min(+m[2], 200); i++) out.add(i); } else if (/^\d+$/.test(p)) out.add(+p); }); return [...out].sort((a, b) => a - b); };
 const isPlainSec = (secs, c) => Array.isArray(secs) && secs.length === 1 && secs[0].c === c && +secs[0].f === 1 && +secs[0].t === 20;
 function defaultSections(cls, e) {
@@ -1425,7 +1426,7 @@ function hasRemoval(a, b) {
 }
 async function autoSave(name, cur) {
   const old = P.saved[name]; P.saved[name] = cur; P.state[name] = cur; setSync('saving');
-  P.chain = (P.chain || Promise.resolve()).then(async () => { try { if (P.db) await P.db.doc(docPath(name)).set(JSON.parse(cur)); else saveLocal(); P.savedAt = Date.now(); } catch (e) { console.error(e); P.saved[name] = old; setSync('err'); toast('저장하지 못했어요. [저장] 버튼으로 다시 시도해 주세요'); } finally { updateBar(); } });
+  P.chain = (P.chain || Promise.resolve()).then(async () => { try { if (P.db) await P.db.doc(docPath(name)).set(JSON.parse(cur)); else saveLocal(); P.savedAt = Date.now(); wnTouched(name); } catch (e) { console.error(e); P.saved[name] = old; setSync('err'); toast('저장하지 못했어요. [저장] 버튼으로 다시 시도해 주세요'); } finally { updateBar(); } });
 }
 function persist(name, desc) {
   if (!S.loaded) return;
@@ -1471,7 +1472,7 @@ async function saveAll(quiet) {
       P.saved[n] = js;
     }
     if (!P.db) saveLocal();
-    P.savedAt = Date.now();
+    P.savedAt = Date.now(); names.forEach(wnTouched);
     if (!pendingNames().length) P.undo = [];
     if (!quiet) toast('저장했어요');
   } catch (e) { console.error(e); setSync('err'); toast('저장하지 못했어요: ' + ((e && e.message) || e)); }
@@ -1694,7 +1695,7 @@ async function boot() {
   try { if (cl && cl.use) user = await cl.use('user'); } catch (e) { user = null; }
   try { if (cl && cl.use) P.db = await cl.use('db'); } catch (e) { P.db = null; }
   if (user && typeof user.canEdit === 'function' && user.canEdit() === false) { S.locked = true; S.loaded = true; render(); return; }
-  if (!P.db && !(cl && cl.use) && await sbGate()) { P.db = makeSbDb(RPT.sb); S.storage = 'server'; try { if (await sbMigrate()) setTimeout(() => toast('이 기기의 기존 데이터를 서버로 옮겼어요'), 1500); } catch (e) { console.error(e); S.locked = true; S.loaded = true; $('#view').innerHTML = '<div class="card empty">서버 준비에 실패했어요: ' + esc(e.message) + '<br>supabase/update-4.sql 을 실행했는지 확인해 주세요.</div>'; return; } }
+  if (!P.db && !(cl && cl.use) && await sbGate()) { P.db = makeSbDb(RPT.sb); S.storage = 'server'; setTimeout(() => { try { wnSoon(); } catch (e) { } }, 9000); try { if (await sbMigrate()) setTimeout(() => toast('이 기기의 기존 데이터를 서버로 옮겼어요'), 1500); } catch (e) { console.error(e); S.locked = true; S.loaded = true; $('#view').innerHTML = '<div class="card empty">서버 준비에 실패했어요: ' + esc(e.message) + '<br>supabase/update-4.sql 을 실행했는지 확인해 주세요.</div>'; return; } }
   if (!P.db) {
     S.storage = 'local';
     const j = loadLocal();
@@ -3354,26 +3355,56 @@ function rosOverview() {
   const open = !!S.ui.rosAllOpen;
   return `<div class="ro-grid2" style="gap:30px">${cardsH}</div>
   <div class="ro-div"><span>명단 · 이동 · 반 추가</span></div>
-  <section class="card stack"><div class="card-h" style="margin:0"><h3>전체 명단</h3><span class="sub">${rows.length}명 · 이름순 · 머리글을 눌러 정렬</span><span class="grow"></span><button class="btn sm" data-act="ros-export-wn" title="학생·반 명단을 파일로 저장하면 PC의 오답파일 프로그램에 자동 반영돼요">오답 프로그램용 명단 받기</button> <button class="btn sm" data-act="ros-all-toggle" aria-expanded="${open}">${open ? '접기' : '펼치기'}</button></div>
+  <section class="card stack"><div class="card-h" style="margin:0"><h3>전체 명단</h3><span class="sub">${rows.length}명 · 이름순 · 머리글을 눌러 정렬</span><span class="grow"></span>${rptCfg().SUPABASE_URL ? '<button class="btn sm" data-act="wn-sync" title="명단·반 일정·강의계획서는 저장할 때마다 자동으로 오답이음에 올라가요. 바로 보내고 싶을 때 눌러요">오답이음으로 지금 보내기</button> ' : ''}<button class="btn sm" data-act="ros-export-wn" title="학생·반 명단을 파일로 저장하면 PC의 오답파일 프로그램에 자동 반영돼요">오답 프로그램용 명단 받기</button> <button class="btn sm" data-act="ros-all-toggle" aria-expanded="${open}">${open ? '접기' : '펼치기'}</button></div>
     ${open ? `<div class="tbl-wrap"><table class="ros-tbl noclin"><thead><tr><th>#</th>${sortTh('rosall', 'name', '이름')}${sortTh('rosall', 'cls', '반')}<th>전화번호</th>${sortTh('rosall', 'school', '학교')}${sortTh('rosall', 'grade', '학년')}${sortTh('rosall', 'clinic', '토요 클리닉')}<th>메모</th></tr></thead><tbody>${rows.map((x, i) => `<tr><td class="small muted">${i + 1}</td><td style="white-space:nowrap">${nameLkRos(x.s)}</td><td>${cchip(x.cls.id)}</td><td style="white-space:nowrap">${x.s.phone ? esc(x.s.phone) : '<span class="muted">-</span>'}</td><td>${x.s.school ? esc(x.s.school) : '<span class="muted">-</span>'}</td><td>${gradeTxt(x.s) ? esc(gradeTxt(x.s)) : '<span class="muted">-</span>'}</td><td>${({ '1': '1타임', '2': '2타임', '3': '3타임' })[x.s.clinic || ''] || '<span class="muted">없음</span>'}</td><td>${x.s.memo ? esc(x.s.memo) : '<span class="muted">-</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}</section>`;
 }
 ACT['ros-all-toggle'] = () => { S.ui.rosAllOpen = !S.ui.rosAllOpen; render(); };
 /* 오답파일 프로그램(PC)용 명단 내보내기: 파일 이름은 그대로 두세요. PC 프로그램이 다운로드 폴더에서 자동으로 읽어요 */
-ACT['ros-export-wn'] = async () => {
+function wnPayload() {
   const list = S.roster.students.filter(s => isLive(s) && !s.out && s.name).map(s => ({ src: s.id, cls: (clsById(s.cls) || {}).name || '', name: s.name, phone: String(s.phone || '').replace(/[^0-9]/g, '') }));
-  if (!list.length) { toast('내보낼 학생이 없어요'); return; }
-  /* 반별 현재 과정: 반 일정(tl)에서 오늘 날짜에 해당하는 항목의 과정(2-1, 2-2, 3-1, 특강 등) */
+  if (!list.length) return null;
+  /* 반별 현재 과정: 반 일정(tl)에서 오늘 날짜에 해당하는 항목의 과정(2-1, 2-2, 3-1, 특강 등). 특강반도 같은 구조로 들어가요 */
   const today = todayStr();
   const classes = liveCls().map(c => { const tl = c.tl || []; let cur = tl[0]; for (const e of tl) if (e[2] <= today) cur = e; return { name: c.name, course: cur ? String(cur[0]) : '', clinicDow: c.clinicDow === undefined ? -1 : c.clinicDow, sessions: tl.map(e => e[2]).filter(d => d && d >= addDays(today, -14)) }; });
   /* 토요의무클리닉 '학생체크용 범위' 중 최상위·에이급·쎈만 오답이음으로 보내요 (선택된 날짜 기준 지난주~5주 뒤) */
   const weeks = [];
   try { const d0 = clDate(); [-14, -7, 0, 7, 14, 21, 28].forEach(n => { const d = addDays(d0, n); weeks.push({ date: d, classes: bxClasses(d).map(c => { const g = f => { try { return String(autoCm(c, d, f) || ''); } catch (e) { return ''; } }; return { name: c.name, ranges: { t: g('t'), a: g('a'), s: g('s') } }; }) }); }); } catch (e) { console.warn('weeks', e); }
-  const data = JSON.stringify({ source: '이든수학 업무관리', savedAt: new Date().toISOString(), classes, weeks, students: list }, null, 1);
+  return { source: '이든수학 업무관리', savedAt: new Date().toISOString(), classes, weeks, students: list };
+}
+ACT['ros-export-wn'] = async () => {
+  const o = wnPayload(); if (!o) { toast('내보낼 학생이 없어요'); return; }
+  const data = JSON.stringify(o, null, 1);
   const r = await saveViaDownloads('명단_업무관리.json', data);
-  if (r === 'saved') toast(`오답이음으로 보냈어요: 학생 ${list.length}명 · 클리닉 ${weeks.length}주 범위(쎈·최상위·에이급). 오답이음이 몇 초 안에 자동으로 받아요`);
+  if (r === 'saved') toast(`오답이음으로 보냈어요: 학생 ${o.students.length}명 · 클리닉 ${o.weeks.length}주 범위(쎈·최상위·에이급). 오답이음이 몇 초 안에 자동으로 받아요`);
   else if (r === 'declined' || r === 'user_declined') toast('저장을 취소했어요');
   else toast('이 화면에서는 파일 저장을 쓸 수 없어요');
 };
+/* ===== 명단·강의계획서를 서버(program_sync 표, key='roster')에 자동으로 올리기: 오답이음이 5분마다 읽어가요 =====
+   명단·반 일정·강의계획서·클리닉 범위가 저장될 때마다 4초 뒤 한 번, 위 파일과 똑같은 내용을 올려요 (내용이 그대로면 건너뛰어요) */
+const WN = { t: null, sig: '', busy: false, again: false, last: 0, err: '' };
+function wnSoon() { clearTimeout(WN.t); WN.t = setTimeout(() => { wnSync(false).catch(e => console.warn('오답이음 명단 전송', e)); }, 4000); }
+function wnTouched(name) { if (['cfg', 'roster', 'plan', 'clinic'].includes(name) && rptCfg().SUPABASE_URL) wnSoon(); }
+async function wnSync(manual) {
+  if (WN.busy) { WN.again = true; return; }
+  if (!rptCfg().SUPABASE_URL) { if (manual) toast('이 화면에서는 서버 연결이 없어서 자동 전송을 쓸 수 없어요'); return; }
+  WN.busy = true;
+  try {
+    await rptClient();
+    if (!RPT.user || !RPT.isTeacher) { if (manual) toast('선생님 로그인이 필요해요'); return; }
+    const o = wnPayload(); if (!o) { if (manual) toast('보낼 학생이 없어요'); return; }
+    const sig = JSON.stringify({ c: o.classes, w: o.weeks, s: o.students });
+    if (!manual && sig === WN.sig) return;
+    const r = await RPT.sb.from('program_sync').upsert({ key: 'roster', payload: o, source: '업무관리사이트', updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    if (r.error) throw new Error(r.error.message);
+    WN.sig = sig; WN.last = Date.now(); WN.err = '';
+    if (manual) toast(`오답이음으로 보냈어요: 학생 ${o.students.length}명 · 반 ${o.classes.length}개. 오답이음이 5분 안에 자동으로 받아요`);
+  } catch (e) {
+    WN.err = (e && e.message) || String(e);
+    if (manual) toast('오답이음으로 보내지 못했어요: ' + WN.err + (/program_sync|relation|does not exist/i.test(WN.err) ? ' (supabase/update-4.sql 을 실행했는지 확인해 주세요)' : ''));
+    else console.warn('오답이음 명단 전송 실패', WN.err);
+  } finally { WN.busy = false; if (WN.again) { WN.again = false; wnSoon(); } }
+}
+ACT['wn-sync'] = () => wnSync(true);
 R.roster = () => { const rf = S.ui.rosCls === 'past' ? 'past' : liveCls().some(c => c.id === S.ui.rosCls) ? S.ui.rosCls : 'all'; return `
   ${clsGhostBar('cfg', S.cfg.classes)}<div><h2>반·학생</h2><div class="small muted">학생은 추가·수정하고, 반을 옮기거나 퇴원 처리할 수 있어요. 학생의 과정은 속한 반의 일정에 따라 자동으로 이어져요.</div></div>
   <div class="ros-sticky"><div class="seg tabx tabx-top" role="group" aria-label="반 보기"><button data-act="ros-cls" data-id="all" aria-pressed="${rf === 'all'}">전체</button>${liveCls().map(c => `<button data-act="ros-cls" data-id="${c.id}" aria-pressed="${rf === c.id}">${esc(c.name)}</button>`).join('')}<button data-act="ros-cls" data-id="past" aria-pressed="${rf === 'past'}">과거반${S.cfg.classes.some(c => c.hidden) ? ' ' + S.cfg.classes.filter(c => c.hidden).length : ''}</button></div></div>
@@ -6850,7 +6881,7 @@ function quStudentCard(s) {
    ① 학생별 회차 점수를 누적테스트 성적에 넣고 ② 학생 리포트의 단원별 출제·오답·정답률, 성적 추이(반 평균), 학습 상태 분석 문장에 반영해요.
    학생은 파일의 학생 고유번호 = 업무관리 명단의 id 로 연결하고, 같은 시험(testId)을 다시 올리면 중복 없이 갱신해요. */
 /* 특강처럼 정규 과정이 아닌 시험: 오답이음의 문항별 단원(items)을 이어진 구간으로 묶어 '단원 구간'으로 쓴다 (예: 일차함수 1~10, 이차함수 11~20) */
-const ntSpSecs = (t, course) => { if (COURSES.includes(course)) return null; const N = +t.problems || 0, it = {}; (t.items || []).forEach(i => { it[+i.n] = i.unit || ''; }); if (!N || !Object.values(it).some(Boolean)) return N ? [{ c: course, f: 1, t: N }] : null; const out = []; for (let q = 1; q <= N; q++) { const u = it[q] || course, l = out[out.length - 1]; if (l && l.c === u) l.t = q; else out.push({ c: u, f: q, t: q }); } return out; };
+const ntSpSecs = (t, course, cls) => { if (COURSES.includes(course)) return null; const N = +t.problems || 0, it = {}; (t.items || []).forEach(i => { it[+i.n] = i.unit || ''; }); if (!N || !Object.values(it).some(Boolean)) { const sd = N && cls ? secDefOf(cls, +t.n) : null; if (sd && sd.reduce((a, x) => a + Math.max(0, (+x.t) - (+x.f) + 1), 0) === N) return clone(sd); return N ? [{ c: course, f: 1, t: N }] : null; } const out = []; for (let q = 1; q <= N; q++) { const u = it[q] || course, l = out[out.length - 1]; if (l && l.c === u) l.t = q; else out.push({ c: u, f: q, t: q }); } return out; };
 const NT_SECS = (rec, wrong) => rec.sections.map(s => Math.max(0, (+s.t) - (+s.f) + 1) - wrong.filter(q => q >= +s.f && q <= +s.t).length);
 const ntCourseOf = (t, j) => String(t.testId || '').split('|')[2] || (j.class && j.class.course) || '';
 function ntPlan(j, fname) {
@@ -6866,7 +6897,7 @@ function ntPlan(j, fname) {
     P.linked.forEach(({ st, s }) => {
       const tt = (st.tests || []).find(y => y.testId === t.testId); if (!tt) { x.none++; return; }
       const old = rec && rec.r && rec.r[s.id], nw = (tt.wrong || []).join(', ');
-      if (rec && rec.sections && NT_SECS({ sections: ntSpSecs(t, course) || rec.sections }, tt.wrong || []).reduce((a, b) => a + b, 0) !== tt.score) x.bad++;
+      if (rec && rec.sections && NT_SECS({ sections: ntSpSecs(t, course, P.cls) || rec.sections }, tt.wrong || []).reduce((a, b) => a + b, 0) !== tt.score) x.bad++;
       if (old && stOf(old) === 'ok' && rec) { let oc = null; try { oc = calc(rec, old); } catch (er) { } if (oc && oc.total != null && tt.score != null && Math.abs(oc.total - tt.score) >= Math.max(3, Math.ceil((+t.problems || 20) * 0.15))) x.big++; }
       if (!old || stOf(old) !== 'ok' || !(old.wrong || '').trim() && !Array.isArray(old.sec)) x.add++; else if (String(old.wrong || '').trim() !== nw) x.upd++; else x.same++;
     });
@@ -6907,7 +6938,7 @@ function ntApplyItems(items, auto) {
       P.tests.forEach(x => {
         if (!x.e) return; const rec = ensureRec(P.cls, x.e), t = x.t;
         rec.nt = { testId: t.testId, problems: t.problems, participants: t.participants, average: t.average, top: t.top, d: t.date, at: Date.now() };
-        { const sp = ntSpSecs(t, x.course); if (sp) rec.sections = sp; }
+        { const sp = ntSpSecs(t, x.course, P.cls); if (sp) rec.sections = sp; }
         if ((t.items || []).length) { const arr = []; for (let q = 1; q <= (t.problems || 20); q++) { const it = t.items.find(i => +i.n === q); arr.push(it ? [it.unit, it.lv || '', it.ch || ''] : ['', '', '']); } if (arr.some(a => a[0])) { S.cfg.qunits = S.cfg.qunits || {}; S.cfg.qunits[quKey(x.course, x.n)] = { t: arr, f: '오답이음', at: Date.now() }; nCfg++; } }
         P.linked.forEach(({ st: stu, s }) => {
           const tt = (stu.tests || []).find(y => y.testId === t.testId); if (!tt) return;
