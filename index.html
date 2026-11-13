@@ -7018,8 +7018,11 @@ function inboxBanner() { const n = inbNewCount(); return n ? `<div class="banner
 function inboxCheckOnce() {
   if (INB.checked || !S.loaded) return; INB.checked = true;
   if (!rptCfg().SUPABASE_URL) return;
-  inbLoad().then(async () => { const n = inbNewCount(); if (!n) return; if (INB.autoOn()) { await inbAutoApply(INB.rows.filter(inbNew)); return; } toast(`오답이음에서 새 분석 ${n}건이 도착했어요 (성취도관리 › 받은 분석)`); if (S.ui.tab === 'home') render(); }).catch(() => { });
+  inbLoad().then(async () => { INB.rows.forEach(r => { INB.seen[r.key] = r.updated_at; }); const n = inbNewCount(); if (!n) return; if (INB.autoOn()) { await inbAutoApply(INB.rows.filter(inbNew)); return; } toast(`오답이음에서 새 분석 ${n}건이 도착했어요 (성취도관리 › 받은 분석)`); if (S.ui.tab === 'home') render(); }).catch(() => { });
 }
+INB.seen = {};
+/* 화면을 열어 둔 동안 2분마다 새로 올라온 분석을 확인해서 자동 반영 */
+setInterval(async () => { try { if (!S.loaded || !INB.checked || !INB.autoOn() || !rptCfg().SUPABASE_URL || INB.loading) return; await inbLoad(); const fresh = INB.rows.filter(r => inbNew(r) && INB.seen[r.key] !== r.updated_at); INB.rows.forEach(r => { INB.seen[r.key] = r.updated_at; }); if (fresh.length) await inbAutoApply(fresh); } catch (e) { } }, 120000);
 INB.hold = {}; INB.autoOn = () => { try { return localStorage.getItem('eden_inb_auto') !== '0'; } catch (e) { return true; } };
 CH['inb-auto'] = el => { try { localStorage.setItem('eden_inb_auto', el.checked ? '1' : '0'); } catch (e) { } render(); };
 /* 새로 올라온 분석을 자동 반영: 연결 안 된 학생이 있거나 기존 점수와 크게 다르면 반영하지 않고 확인을 받는다 */
