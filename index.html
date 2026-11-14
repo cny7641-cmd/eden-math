@@ -6794,7 +6794,7 @@ function quStats(cls, filt) {
       const w = new Set(parseNums(r.wrong).concat(parseNums(r.add)).filter(x => x > 0)), o = out[st.id]; o.n++;
       for (let q = 1; q <= tq; q++) {
         const m = km[q]; if (m && m.k !== 'X') { const key = m.c + '|' + m.k, a = o.k[key] || (o.k[key] = { ok: 0, tot: 0 }); a.tot++; if (!w.has(q)) a.ok++; }
-        const u = qm && qm.t[q - 1]; if (u) { const uc = (m && m.c) || rec.c, uk = uc + '|' + u[0].replace(/\s+/g, ''), a = o.u[uk] || (o.u[uk] = { w: 0, t: 0, c: uc }); a.t++; if (w.has(q)) a.w++; }
+        const u = qm && qm.t[q - 1]; if (u && u[0]) { const uc = (m && m.c) || rec.c, uk = uc + '|' + u[0].replace(/\s+/g, ''), a = o.u[uk] || (o.u[uk] = { w: 0, t: 0, c: uc }); a.t++; if (w.has(q)) a.w++; }
       }
     });
   });
