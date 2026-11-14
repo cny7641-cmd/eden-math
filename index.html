@@ -782,6 +782,7 @@ button.gs-i:hover,button.gs-i:focus{background:var(--surface2)}
 /* 표의 숫자 칸은 오른쪽 정렬 */
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 </style>
+<style id="cl-abs-css">tr.cl-abs td{background:#eceef2;color:#8a909b}tr.cl-abs td b,tr.cl-abs td .small{color:#8a909b}tr.cl-abs td:first-child{box-shadow:inset 3px 0 0 #b9bec8}</style>
 <style id="eden-ext">
 @media (prefers-color-scheme:dark){
 :root:not([data-theme="light"]) .wcal-d,:root:not([data-theme="light"]) .wcal-d.past,:root:not([data-theme="light"]) .pay-cls,:root:not([data-theme="light"]) .sw-dd>summary,:root:not([data-theme="light"]) .sw-pop,:root:not([data-theme="light"]) .pb-chk{background:var(--surface);border-color:var(--line);color:var(--ink)}
@@ -2081,7 +2082,7 @@ function achDash(cid) {
     const ci = clsCc(cls.id); const stus = studentsOf(cls.id).filter(isLive); const ind = isIndiv(cls);
     const series = ind ? [] : clsAvgSeries(cls, date, 8); const a = series[0], pv = series[1]; const dl = a && pv ? Math.round((a.v - pv.v) * 10) / 10 : null;
     /* 최근 회차 과제완성도 분포 */
-    let dist = null; for (const e of tl(cls).filter(x => x.d <= date).sort((x, y) => y.d.localeCompare(x.d) || y.n - x.n)) { const rec = getRec(cls, e); if (!rec || !rec.r) continue; const sts = recStudents(rec); let g = 0, m = 0, l = 0, n = 0; sts.forEach(st => { const r = rec.r[st.id]; if (!r || (stOf(r) === 'ok' && !r.g && !r.hwc)) return; const gg = gradeOf(r).g; n++; if (gg === 'A+' || gg === 'A') g++; else if (gg === 'B+' || gg === 'B') m++; else l++; }); if (n) { dist = { g, m, l, n, e }; break; } }
+    let dist = null; for (const e of tl(cls).filter(x => x.d <= date).sort((x, y) => y.d.localeCompare(x.d) || y.n - x.n)) { const rec = getRec(cls, e); if (!rec || !rec.r) continue; const sts = recStudents(rec); let g = 0, m = 0, l = 0, n = 0; sts.forEach(st => { const r = rec.r[st.id]; if (!r || stOf(r) === 'no' || (stOf(r) === 'ok' && !r.g && !r.hwc)) return; const gg = gradeOf(r).g; n++; if (gg === 'A+' || gg === 'A') g++; else if (gg === 'B+' || gg === 'B') m++; else l++; }); if (n) { dist = { g, m, l, n, e }; break; } }
     /* 총괄 통과 */
     let pass = 0, fail = 0, pend = 0;
     stus.forEach(s => { const fr = finStuRows(s).filter(x => x.tot != null); const cs = [...new Set(fr.map(x => x.c))].sort((x, y) => COURSES.indexOf(y) - COURSES.indexOf(x)); let done = false; for (const c of cs) { const b = fr.filter(x => x.c === c && x.blk === '기본').pop(), v = fr.filter(x => x.c === c && x.blk === '심화').pop(); if (b && v) { const ok = (b.tot >= 14 && v.tot >= 14) || (b.tot + v.tot >= 30); ok ? pass++ : fail++; done = true; break; } } if (!done) pend++; });
@@ -2393,8 +2394,8 @@ function stuRow(rec, s, fin) {
   const g = (r.g || 'A+');
   return `<tr data-row="${sid}"><td style="white-space:nowrap">${fin ? '' : `<input type="checkbox" class="ai-sel" data-ch="ai-sel" data-sid="${sid}" aria-label="${esc(s.name)} AI 문장 대상 선택" title="AI 문장을 만들 학생 선택" ${aiSelOf(rec)[sid] ? 'checked' : ''} style="width:auto;margin-right:6px;vertical-align:middle">`}${nameLk(s)}${s.removed ? ' <span class="pill">명단 제외</span>' : ''}<div style="margin-top:6px"><select data-ch="stu" data-f="st" data-sid="${sid}" aria-label="${esc(s.name)} 응시 상태"><option value="ok"${st === 'ok' ? ' selected' : ''}>응시</option><option value="abs"${st === 'abs' ? ' selected' : ''}>결석</option><option value="no"${st === 'no' ? ' selected' : ''}>미응시</option></select></div></td>
     ${fin ? '' : scoreIn + `<td id="sc-${sid}" style="min-width:56px;white-space:nowrap">${scoreCell(rec, sid)}</td>`}
-    <td style="min-width:130px">${firstLessonOf(rec, sid) ? '<span class="pill">첫 수업 · 제외</span>' : st === 'abs' ? '<span class="pill bad">C(결석)</span>' : `<div class="gcell" style="min-width:0;width:100%"><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><select class="w-sm" data-ch="stu" data-f="g" data-sid="${sid}" aria-label="${esc(s.name)} 과제완성도">${['A+', 'A', 'B', 'C'].map(x => `<option${x === g ? ' selected' : ''}>${x}</option>`).join('')}</select><input type="text" placeholder="사유 (쎈 미흡)" aria-label="${esc(s.name)} 과제 미흡 사유" data-ch="stu" data-f="gr" data-sid="${sid}" value="${esc(r.gr || '')}"></div></div>`}</td>
-    <td style="min-width:200px;vertical-align:top">${st === 'abs' ? '' : hwcHtml(rec, sid, r)}</td>
+    <td style="min-width:130px">${firstLessonOf(rec, sid) ? '<span class="pill">첫 수업 · 제외</span>' : st === 'abs' ? '<span class="pill bad">C(결석)</span>' : st === 'no' ? '<span class="muted small">미응시 · 과제완성도 없음</span>' : `<div class="gcell" style="min-width:0;width:100%"><div style="display:flex;flex-direction:column;gap:6px;align-items:stretch"><select class="w-sm" data-ch="stu" data-f="g" data-sid="${sid}" aria-label="${esc(s.name)} 과제완성도">${['A+', 'A', 'B', 'C'].map(x => `<option${x === g ? ' selected' : ''}>${x}</option>`).join('')}</select><input type="text" placeholder="사유 (쎈 미흡)" aria-label="${esc(s.name)} 과제 미흡 사유" data-ch="stu" data-f="gr" data-sid="${sid}" value="${esc(r.gr || '')}"></div></div>`}</td>
+    <td style="min-width:200px;vertical-align:top">${st === 'abs' || st === 'no' ? '' : hwcHtml(rec, sid, r)}</td>
     <td style="white-space:nowrap;vertical-align:top">${(() => { const nl = noteOf(r).length, al = (r.ai || '').trim().length, op = !!(S.ui.openNotes || {})[sid]; return `<button type="button" class="btn sm note-btn${nl || al ? ' has' : ''}${op ? ' on' : ''}" data-act="note-tgl" data-sid="${sid}" aria-expanded="${op}" aria-label="${esc(s.name)} 개별 안내·AI 문장 ${op ? '접기' : '펼치기'}">✎ ${nl || al ? `${al ? 'AI ' : ''}${nl ? '안내 ' + nl + '자' : ''}` : '안내'} <b>${op ? '▴' : '▾'}</b></button>`; })()}${fin ? '' : (() => { const kl = kindOf(r, rec, sid).trim().length, ok = !!(S.ui.openKind || {})[sid]; return ` <button type="button" class="btn sm note-btn${kl ? ' has' : ''}${ok ? ' on' : ''}" data-act="kind-tgl" data-sid="${sid}" aria-expanded="${ok}" aria-label="${esc(s.name)} 영역별 정답률 ${ok ? '접기' : '펼치기'}">📊 정답률${kl ? ' ✓' : ''} <b>${ok ? '▴' : '▾'}</b></button>`; })()}</td></tr>${!fin && (S.ui.openKind || {})[sid] ? `<tr class="note-row" data-kindrow="${sid}"><td colspan="20"><div class="field"><label>영역별 정답률 <span class="small muted">· 오답 번호를 넣으면 자동으로 채워져요 (직접 고쳐도 돼요)</span></label><textarea rows="4" class="autosize" aria-label="${esc(s.name)} 영역별 정답률" placeholder="오답 번호를 넣으면 자동으로 채워져요 (직접 고쳐도 돼요)" data-ch="stu" data-f="kind" data-sid="${sid}">${esc(kindOf(r, rec, sid))}</textarea></div></td></tr>` : ''}${(S.ui.openNotes || {})[sid] ? `<tr class="note-row" data-note="${sid}"><td colspan="20"><div class="note-box">${fin ? '' : `<div class="field"><label>AI 문장 <span class="small muted">· 문자에서 개별 안내 바로 위에 들어가요</span></label><textarea rows="3" class="autosize" aria-label="${esc(s.name)} AI 문장" placeholder="[AI 문장] 버튼으로 채우거나 직접 써요" data-ch="stu" data-f="ai" data-sid="${sid}">${esc(r.ai || '')}</textarea></div>`}<div class="field"><label>개별 안내 <span class="small muted">· 없으면 비워두세요</span></label><textarea rows="3" class="autosize" aria-label="${esc(s.name)} 개별 안내" placeholder="개별 안내 (없으면 비워두세요)" data-ch="stu" data-f="note" data-sid="${sid}">${esc(noteOf(r))}</textarea>${(S.cfg.phrases || []).length ? `<select class="small" data-ch="phr" data-sid="${sid}" aria-label="문구 넣기">${phraseOpts()}</select>` : ''}</div></div></td></tr>` : ''}`;
 }
 function msgsHtml(rec) {
@@ -2417,7 +2418,7 @@ function updateDerived() {
 /* 결석한 날은 숙제를 못 낸 것으로 보고 공통숙제 미완료분에 자동 등록 (최근 2주 수업 중 아직 처리 안 된 것만, 한 번씩) */
 function hwAbsBackfill() {
   if (!S.loaded || !S.hw) return; const lo = addDays(todayStr(), -14), hi = todayStr(); S.hw.bf = S.hw.bf || {};
-  Object.values(S.sess).forEach(rec => { if (!rec.d || rec.d < lo || rec.d > hi || !rec.r) return; Object.keys(rec.r).forEach(sid => { const r = rec.r[sid], k = 'n|' + rec.id + '|' + sid; if (S.hw.bf[k] || stOf(r) !== 'no' || !r.g || r.g === 'A+' || !S.roster.students.some(x => x.id === sid)) return; S.hw.bf[k] = 1; if (!S.hw.items.some(x => x.src === 'ha_' + rec.id + '_' + sid)) { syncHw(rec, sid); commit('hw', '미응시 학생 숙제 미완료 자동 등록'); } }); });
+  Object.values(S.sess).forEach(rec => { if (!rec.d || rec.d < lo || rec.d > hi || !rec.r) return; Object.keys(rec.r).forEach(sid => { const r = rec.r[sid], k = 'n|' + rec.id + '|' + sid; if (true || S.hw.bf[k] || stOf(r) !== 'no' || !r.g || r.g === 'A+' || !S.roster.students.some(x => x.id === sid)) return; S.hw.bf[k] = 1; if (!S.hw.items.some(x => x.src === 'ha_' + rec.id + '_' + sid)) { syncHw(rec, sid); commit('hw', '미응시 학생 숙제 미완료 자동 등록'); } }); });
   Object.values(S.sess).forEach(rec => { if (!rec.d || rec.d < lo || rec.d > hi || !rec.r) return; Object.keys(rec.r).forEach(sid => { const k = 'r|' + rec.id + '|' + sid; if (S.hw.bf[k] || stOf(rec.r[sid]) !== 'abs' || !S.hw.bf[rec.id + '|' + sid] || !S.roster.students.some(x => x.id === sid)) return; S.hw.bf[k] = 1; if (!S.hw.items.some(x => x.src === 'ha_' + rec.id + '_' + sid)) { syncHw(rec, sid); commit('hw', '결석 숙제 미완료 복구'); } }); });
   { let fixed = 0; (S.hw.items || []).forEach(it => { if (!it.done || !it.doneOn || !String(it.src || '').startsWith('ha_')) return; const rec = Object.values(S.sess).find(r => r.id && String(it.src).startsWith('ha_' + r.id + '_')); if (!rec || !rec.d || it.doneOn >= rec.d) return; it.done = false; delete it.doneOn; fixed++; }); if (fixed) autoCommit('hw', `결석·미흡 숙제 ${fixed}건 다시 미완료로 되돌림`); }
   Object.values(S.sess).forEach(rec => { if (!rec.d || rec.d < lo || rec.d > hi || !rec.r) return; Object.keys(rec.r).forEach(sid => { const k = rec.id + '|' + sid; if (S.hw.bf[k] || stOf(rec.r[sid]) !== 'abs' || !S.roster.students.some(x => x.id === sid)) return; S.hw.bf[k] = 1; syncHw(rec, sid); commit('hw', '결석 숙제 미완료 자동 등록'); }); });
@@ -2919,7 +2920,7 @@ CH.sec = el => { const { rec } = curCtx(); const x = rec.sections[+el.dataset.i]
 function syncHw(rec, sid) {
   const cls = clsById(rec.cls); if (!cls) return;
   const e = ({ c: rec.c, n: rec.n, d: rec.d }); const ps = prevSession(cls, e); const r = rec.r[sid] || {}; const name = stuName(sid) || r.name;
-  const id = 'ha_' + rec.id + '_' + sid; const abs = stOf(r) === 'abs'; const bad = abs || (stOf(r) !== 'abs' && r.g && r.g !== 'A+');
+  const id = 'ha_' + rec.id + '_' + sid; const abs = stOf(r) === 'abs'; const bad = abs || (stOf(r) === 'ok' && r.g && r.g !== 'A+');
   let it = S.hw.items.find(x => x.src === id);
   if (it && it.done && it.doneOn && rec.d && it.doneOn < rec.d) { it.done = false; delete it.doneOn; } /* 결석한 날보다 앞선 완료 기록은 옛 일정의 것 */
   if (!it && ps) it = S.hw.items.find(x => x.cls === rec.cls && x.name === name && !x.done && (x.range || '').startsWith(ps.n + '회차') && !x.src);
@@ -4484,7 +4485,7 @@ function clDayView(date) {
   const ds = detailId ? S.roster.students.find(x => x.id === detailId) : null; const di = detailId ? list.findIndex(r => r.s.id === detailId) : -1;
   const open = clOpen().filter(x => !x.f);
   const atCell = r => !r.at ? '' : (S.ui.clAtEdit === r.s.id ? ` <input type="time" style="width:110px" aria-label="${esc(r.s.name)} 출석 시각" data-ch="cld-at" data-s="${r.s.id}" value="${esc(r.at)}">` : ` <button type="button" class="small" data-act="cld-at-edit" data-s="${r.s.id}" title="출석 시각 수정" style="border:0;background:none;color:var(--accent);cursor:pointer;padding:0 2px">${clAtTxt(r.at)}</button>`);
-  const rowHtml = r => { const s = r.s, c = clsById(s.cls); const on = detailId === s.id; return `<tr${on ? ' style="background:var(--accent-soft)"' : ''}><td style="width:30px"><input type="checkbox" data-ch="cld-sel" data-s="${s.id}" aria-label="${esc(s.name)} 선택"${sel[s.id] ? ' checked' : ''}></td><td><b>${nameLk(s)}</b></td><td>${c ? cchip(c.id) : ''}</td><td class="small">${esc(clSlotTxt(r.slot, date, s))}</td><td style="white-space:nowrap"><select style="width:auto" aria-label="${esc(s.name)} 출결" data-ch="cl-edit" data-d="${date}" data-s="${s.id}" data-f="a">${CL_ATT.map(o => `<option value="${o}"${r.a === o ? ' selected' : ''}>${o || '미확인'}</option>`).join('')}</select>${atCell(r)}</td><td class="num">${r.a === '결석' ? '<span class="muted">-</span>' : `<b>${r.p.done}</b>/${r.p.tot}${r.p.miss ? ` <span class="pill bad" title="미완료로 표시한 항목">✕${r.p.miss}</span>` : ''}`}</td><td style="text-align:right"><button class="btn sm${on ? ' pri' : ''}" data-act="cld-open" data-s="${s.id}">${on ? '닫기' : '상세'}</button></td></tr>`; };
+  const rowHtml = r => { const s = r.s, c = clsById(s.cls); const on = detailId === s.id; return `<tr class="${r.a === '결석' ? 'cl-abs' : ''}"${on ? ' style="background:var(--accent-soft)"' : ''}><td style="width:30px"><input type="checkbox" data-ch="cld-sel" data-s="${s.id}" aria-label="${esc(s.name)} 선택"${sel[s.id] ? ' checked' : ''}></td><td><b>${nameLk(s)}</b></td><td>${c ? cchip(c.id) : ''}</td><td class="small">${esc(clSlotTxt(r.slot, date, s))}</td><td style="white-space:nowrap"><select style="width:auto" aria-label="${esc(s.name)} 출결" data-ch="cl-edit" data-d="${date}" data-s="${s.id}" data-f="a">${CL_ATT.map(o => `<option value="${o}"${r.a === o ? ' selected' : ''}>${o || '미확인'}</option>`).join('')}</select>${atCell(r)}</td><td class="num">${r.a === '결석' ? '<span class="muted">-</span>' : `<b>${r.p.done}</b>/${r.p.tot}${r.p.miss ? ` <span class="pill bad" title="미완료로 표시한 항목">✕${r.p.miss}</span>` : ''}`}</td><td style="text-align:right"><button class="btn sm${on ? ' pri' : ''}" data-act="cld-open" data-s="${s.id}">${on ? '닫기' : '상세'}</button></td></tr>`; };
   const detailRow = () => !ds ? '' : `<tr id="cld-detail"><td colspan="7" style="background:var(--surface2,#f3f5f8);padding:10px"><div class="stack" style="gap:8px"><div class="row" style="flex-wrap:wrap"><b>${esc(ds.name)} 상세</b><span class="small muted">${esc(clsName(ds.cls))} · ${esc(clSlotTxt(slotOf(date, ds), date, ds))}</span><span class="grow"></span><button class="btn sm" data-act="cld-nav" data-n="-1"${di <= 0 ? ' disabled' : ''}>‹ 이전 학생</button><button class="btn sm" data-act="cld-nav" data-n="1"${di < 0 || di >= list.length - 1 ? ' disabled' : ''}>다음 학생 ›</button><button class="btn sm" data-act="cld-close">닫기</button></div><div class="tbl-wrap"><table><thead><tr>${clHead()}</tr></thead><tbody>${clRow(ds, date, true)}</tbody></table></div></div></td></tr>`;
   const keyOf = r => gk === 'c' ? r.s.cls : gk === 't' ? r.slot : ''; let rows = '', prevK = null;
   list.forEach(r => { const k = keyOf(r);
@@ -4531,8 +4532,8 @@ function cldApply(label, sids, fn) {
   fn(d); autoCommit('clinic', label); render();
   toastUndo(label + ' · 저장됨', () => { snap.forEach(([id, v]) => { L[d] = L[d] || {}; if (v) L[d][id] = v; else delete L[d][id]; }); if (L[d] && !Object.keys(L[d]).length) delete L[d]; autoCommit('clinic', label + ' 되돌리기'); render(); });
 }
-ACT['cld-att'] = () => { const d = clDate(); const ids = Object.keys(S.ui.clSel || {}); if (!ids.length) return; cldApply(`${md(d)} 클리닉 ${ids.length}명 출석 처리`, ids, dd => { ids.forEach(id => { clSet(dd, id, 'a', '출석'); if (!clLog(dd, id).at) clSet(dd, id, 'at', nowHM()); bgFromAtt(dd, id, '출석'); }); }); S.ui.clSel = {}; };
-ACT['cld-done'] = () => { const d = clDate(); const ids = Object.keys(S.ui.clSel || {}); if (!ids.length) return; cldApply(`${md(d)} 클리닉 ${ids.length}명 과제 전부 완료`, ids, dd => { ids.forEach(id => { const s = S.roster.students.find(x => x.id === id); if (!s) return; const it = itemsOf(dd, s); dispItems(it).forEach(i => { if (it.k[i.key] !== 1) ciSetMark(dd, s.id, i.key, 1); }); }); }); S.ui.clSel = {}; };
+ACT['cld-att'] = () => { const d = clDate(); const ids = Object.keys(S.ui.clSel || {}); if (!ids.length) return; S.ui.clSel = {}; cldApply(`${md(d)} 클리닉 ${ids.length}명 출석 처리`, ids, dd => { ids.forEach(id => { clSet(dd, id, 'a', '출석'); if (!clLog(dd, id).at) clSet(dd, id, 'at', nowHM()); bgFromAtt(dd, id, '출석'); }); }); };
+ACT['cld-done'] = () => { const d = clDate(); const ids = Object.keys(S.ui.clSel || {}); if (!ids.length) return; S.ui.clSel = {}; cldApply(`${md(d)} 클리닉 ${ids.length}명 과제 전부 완료`, ids, dd => { ids.forEach(id => { const s = S.roster.students.find(x => x.id === id); if (!s) return; const it = itemsOf(dd, s); dispItems(it).forEach(i => { if (it.k[i.key] !== 1) ciSetMark(dd, s.id, i.key, 1); }); }); });  };
 function clAddCard(date) {
   const others = t => S.roster.students.filter(s => isLive(s) && slotOf(date, s) !== t).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   return `<section class="card stack"><div class="card-h" style="margin:0"><h3>이번 회차에 학생 추가</h3><span class="sub">고정 타임이 아닌 학생을 이번 회차에만 넣어요</span></div>${SLOTS.map(([t, lab, hr]) => `<div class="row cl-addrow"><select style="width:auto" aria-label="${lab}에 학생 추가" id="cl-add-${t}"><option value="">${lab} · ${hr}에 추가…</option>${others(t).map(s => `<option value="${s.id}">${esc(s.name)} (${esc(clsName(s.cls))}${s.clinic ? ' · ' + s.clinic + '타임' : ''})</option>`).join('')}</select><button class="btn" data-act="cl-add" data-t="${t}">이번만 넣기</button></div>`).join('')}</section>`;
@@ -5242,7 +5243,7 @@ function stuHistory(s) {
     const r = rec.r && rec.r[s.id]; if (!r) return; if (s.joined && (rec.d || '') < s.joined) return; /* 편입 전 기록은 안 보여요 */
     const c = calc(rec, r), st = stats(rec), ab = stOf(r) !== 'ok';
     const ann = [rec.common, noteOf(r)].map(x => (x || '').trim()).filter(Boolean).join('\n');
-    const g = firstLessonOf(rec, s.id) ? null : ab ? gradeOf(r) : ((r.g || r.gr) ? gradeOf(r) : null);
+    const g = firstLessonOf(rec, s.id) ? null : ab ? (stOf(r) === 'abs' ? gradeOf(r) : null) : ((r.g || r.gr) ? gradeOf(r) : null);
     const tots = c ? Object.values(rec.r).map(x => calc(rec, x)).filter(Boolean).map(x => x.total) : []; const rank = c ? 1 + tots.filter(v => v > c.total).length : null;
     pts.push({ src: 'sess', rank, rn: tots.length, fin: !!finOf(rec), key: rec.id, c: rec.c, n: rec.n, d: rec.d || '', total: c ? c.total : null, abs: ab, avg: st.avg, max: st.max, g, ann, prog: (rec.prog || '').trim() });
   });
@@ -6660,7 +6661,7 @@ document.addEventListener('click', ev => { if (!ev.target.closest('.gsearch')) {
 function numberRoster() {
   document.querySelectorAll('#view table.ros-tbl tbody').forEach(tb => { let n = 0; tb.querySelectorAll(':scope > tr').forEach(tr => { if (tr.classList.contains('note-row') || tr.classList.contains('done-row')) return; const td = tr.firstElementChild; if (!td || !(td.querySelector('a.name-link') || td.querySelector('input[data-f=name]'))) return; n++; const sp = document.createElement('span'); sp.className = 'rn'; sp.textContent = n + '.'; td.insertBefore(sp, td.firstChild); }); });
 }
-function afterRender() { try { healthCheck(); } catch (e) { console.warn(e); } labelTables(); setTopH(); colorize(); try { numberRoster(); } catch (e) { } try { const on = document.querySelector('.cch[aria-pressed=true]'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { } }
+function afterRender() { try { if (RPL.qr && S.ui.tab === 'rpt') rplDrawQr(); } catch (e) { } try { healthCheck(); } catch (e) { console.warn(e); } labelTables(); setTopH(); colorize(); try { numberRoster(); } catch (e) { } try { const on = document.querySelector('.cch[aria-pressed=true]'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { } }
 (() => { let q = false; const v = $('#view'); if (!v || !window.MutationObserver) return; new MutationObserver(() => { if (q) return; q = true; requestAnimationFrame(() => { q = false; try { labelTables(); } catch (e) { /* ignore */ } }); }).observe(v, { childList: true, subtree: true }); })();
 
 /* ===== 외부 호스팅용 추가 기능: 백업 알림 · 저장 공간 경고 · PIN 잠금 ===== */
@@ -7240,11 +7241,11 @@ R.rpt = () => {
     : RPT.user && RPT.isTeacher ? `<div class="row"><span class="pill good">선생님 로그인됨</span><span class="small muted">${esc(RPT.user.email || '')}</span><button class="btn sm" data-act="rpt-out">로그아웃</button></div>`
     : RPT.user ? `<div class="banner bad">이 계정은 선생님 권한이 없어요. Supabase에서 teachers 표에 등록해야 해요.</div><button class="btn sm" data-act="rpt-out">로그아웃</button>`
     : `<div class="row"><div class="field" style="width:230px"><label for="rpt-em">선생님 이메일</label><input id="rpt-em" type="text" autocomplete="username"></div><div class="field" style="width:200px"><label for="rpt-pw">비밀번호</label><input id="rpt-pw" type="password" autocomplete="current-password"></div><button class="btn pri" data-act="rpt-login">로그인</button></div>`;
-  const ready = cfgOk && RPT.user && RPT.isTeacher; if (ready) rptLoadSrv();
+  const ready = cfgOk && RPT.user && RPT.isTeacher; if (ready) { rptLoadSrv(); rplLoad(); }
   const nsel = sel;
   const rows = list.map(s => {
     const at = RPT.pub[(s.lid || '') + '|' + RPT.month]; const ds = rptDataState(s, nsel), rs = rptStatus(s, nsel);
-    return `<tr><td class="lead"><b>${esc(s.name)}</b></td><td data-label="로그인 ID"><input type="text" class="mono" style="width:130px" maxlength="24" placeholder="전화번호로 부여" value="${esc(s.lid || '')}" data-ch="rpt-lid" data-sid="${esc(s.id)}" aria-label="${esc(s.name)} 로그인 ID"></td>
+    return `<tr><td class="lead"><b>${esc(s.name)}</b></td><td data-label="로그인 ID"><input type="text" class="mono" style="width:130px" maxlength="24" placeholder="[리포트 ID 부여]" value="${esc(s.lid || '')}" data-ch="rpt-lid" data-sid="${esc(s.id)}" aria-label="${esc(s.name)} 로그인 ID"></td>
       <td data-label="데이터 상태"><span class="pill ${ds.tone}">${esc(ds.t)}</span></td><td data-label="리포트 상태"><span class="pill ${rs.tone}">${esc(rs.t)}</span>${rptHeld(s) ? ' <span class="pill bad">발행 막음</span>' : ''}</td>
       <td data-label="작업"><button class="btn sm" data-act="rpt-prev" data-sid="${esc(s.id)}">미리보기</button> <button class="btn sm pri" data-act="rpt-pub" data-sid="${esc(s.id)}" ${ready && s.lid && !rptHeld(s) ? '' : 'disabled'}>발행</button> <button class="btn sm${rptHeld(s) ? ' danger' : ''}" data-act="rpt-hold" data-sid="${esc(s.id)}" ${s.lid ? '' : 'disabled'}>${rptHeld(s) ? '막기 해제' : '발행 막기'}</button>${ready && rs.st !== 'none' ? ` <button class="btn sm" data-act="rpt-withdraw" data-sid="${esc(s.id)}">내리기</button>` : ''}</td></tr>`; }).join('');
   const prevS = RPT.prev && S.roster.students.find(x => x.id === RPT.prev);
@@ -7257,20 +7258,75 @@ R.rpt = () => {
   }
   return `<div class="row"><h2>학생 리포트</h2></div>
   <section class="card stack"><div class="card-h" style="margin:0"><h3>1. 연결</h3><span class="sub">선생님 계정으로 로그인해야 발행할 수 있어요</span></div>${conn}${RPT.err ? `<div class="banner bad">${esc(RPT.err)}</div>` : ''}</section>
-  <section class="card stack"><div class="card-h" style="margin:0"><h3>2. 학생 계정</h3><span class="sub">로그인 ID는 학생 전화번호, 처음 비밀번호는 모두 0000이에요</span></div>
-    <div class="row"><button class="btn" data-act="rpt-ids">전화번호로 ID 부여</button><button class="btn" data-act="rpt-csv">계정 CSV 받기</button></div>
-    ${(RPT.idInfo || []).map(t => `<div class="banner">${esc(t)}</div>`).join('')}
-    <div class="small muted">CSV를 <b>provision.js</b>로 올리면 학생 계정이 만들어져요. 학생은 전화번호와 0000으로 처음 들어온 뒤 <b>반드시 새 비밀번호로 바꿔야</b> 리포트를 볼 수 있어요. 이미 만든 계정은 다시 올려도 바뀌지 않아요.</div></section>
+  ${rplCard(ready, list, cls)}
   <section class="card stack"><div class="card-h" style="margin:0"><h3>3. 성적 리포트 발행</h3></div>
     <div class="row"><div class="field" style="width:160px"><label for="rpt-m">월</label><input id="rpt-m" type="month" value="${esc(RPT.month)}" data-ch="rpt-month"></div>
       <div class="seg" role="group" aria-label="반 선택">${visCls().map(c => `<button data-act="rpt-cls" data-id="${esc(c.id)}" aria-pressed="${c.id === clsId}">${esc(c.name)}</button>`).join('')}</div></div>
     <details class="card"><summary style="cursor:pointer"><b>리포트 설정</b> <span class="small muted">안내 문구 ${RPT.notes ? '포함' : '제외'} · 과정 ${sel.length ? sel.map(cn).join(', ') : '없음'}</span></summary><div class="stack" style="margin-top:8px"><label class="row" style="gap:6px"><input type="checkbox" data-ch="rpt-auto" ${RPT.auto ? 'checked' : ''}>매일 밤 9:40 발행된 리포트 자동 갱신 <span class="small muted">(이 사이트를 열어 둔 기기에서만 · 안 열었으면 다음에 열 때 갱신)</span></label><div><button class="btn sm" data-act="rpt-auto-now">지금 갱신하기</button></div><label class="row" style="gap:6px"><input type="checkbox" data-ch="rpt-notes" ${RPT.notes ? 'checked' : ''}>선생님 안내 문구 포함</label>
     <div class="field"><label>“과정별” 탭에 보여줄 과정 (학생에게 이 과정들만 보여요)</label><div class="row" style="gap:10px">${opts.length ? opts.map(c => `<label class="row" style="gap:5px"><input type="checkbox" data-ch="rpt-course" data-c="${esc(c)}" ${sel.includes(c) ? 'checked' : ''}>${esc(cn(c))}과정</label>`).join('') : '<span class="small muted">이 반의 수업 기록이 없어요</span>'}</div></div></div></details>
-    <div class="tbl-wrap"><table><thead><tr><th>이름</th><th>로그인 ID</th><th>데이터 상태</th><th>리포트 상태</th><th>작업</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="empty">이 반에 학생이 없어요</td></tr>'}</tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th>이름</th><th>리포트 ID</th><th>데이터 상태</th><th>리포트 상태</th><th>작업</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="empty">이 반에 학생이 없어요</td></tr>'}</tbody></table></div>
     <div class="row end" style="gap:8px;flex-wrap:wrap"><button class="btn" data-act="rpt-pub-changed" ${ready && !RPT.busy ? '' : 'disabled'}>수정된 학생만 재발행</button><button class="btn" data-act="rpt-pub-ready" ${ready && !RPT.busy ? '' : 'disabled'}>준비된 학생만 발행</button><button class="btn pri" data-act="rpt-pub-all" ${ready && !RPT.busy ? '' : 'disabled'}>${RPT.busy ? '올리는 중…' : '이 반 전체 발행'}</button></div>
     <div class="small muted">발행하면 그 달 리포트가 새로 만들어져 올라가고, 같은 달을 다시 발행하면 덮어써요. 학생은 본인 것만 볼 수 있어요.</div></section>${prev}`;
 };
 
+/* ===== 학생 링크(QR) + PIN: 학생은 로그인 없이 개인 링크로 들어와요. 링크는 학생마다 추측할 수 없는 긴 값이에요 ===== */
+const RPL = { rows: {}, loaded: false, busy: false, err: '', qr: null, arm: null, sig: '' };
+const rptRandId = () => 'r' + Array.from(crypto.getRandomValues(new Uint8Array(8)), b => (b % 36).toString(36)).join('');
+const rplToken = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'[b % 64]).join('');
+const rplBase = () => rptCfg().STUDENT_URL || new URL('student.html', location.href).href.split('#')[0].split('?')[0];
+const rplUrl = t => rplBase() + '#t=' + t;
+async function rplLoad(force) {
+  if (!RPT.user || !RPT.isTeacher || !RPT.sb || RPL.busy) return; if (RPL.loaded && !force) return; RPL.busy = true;
+  try { const r = await RPT.sb.from('report_links').select('student_code,token,pin_set_at,consent_ver,consented_at,fails,locked_until,created_at'); if (r.error) throw new Error(r.error.message); RPL.rows = {}; (r.data || []).forEach(x => { RPL.rows[x.student_code] = x; }); RPL.err = ''; rplSync(); }
+  catch (e) { RPL.err = (e && e.message) || String(e); }
+  RPL.loaded = true; RPL.busy = false; if (S.ui.tab === 'rpt') render();
+}
+/* 오답이음 프로그램이 학생별 링크·QR을 만들 수 있게, 같은 링크 목록을 program_sync 표(key='student_links')에도 올려요 (선생님 계정만 읽을 수 있어요) */
+async function rplSync() {
+  try {
+    const links = S.roster.students.filter(s => isLive(s) && s.lid && RPL.rows[s.lid]).map(s => ({ src: s.id, name: s.name, cls: (clsById(s.cls) || {}).name || '', url: rplUrl(RPL.rows[s.lid].token) }));
+    const sig = JSON.stringify(links); if (sig === RPL.sig) return;
+    const r = await RPT.sb.from('program_sync').upsert({ key: 'student_links', payload: { source: '이든수학 업무관리', savedAt: new Date().toISOString(), base: rplBase(), links }, source: '업무관리사이트', updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    if (r.error) throw new Error(r.error.message); RPL.sig = sig;
+  } catch (e) { console.warn('학생 링크 목록 전송 실패', e); }
+}
+const rplLocked = r => r && r.locked_until && new Date(r.locked_until) > new Date();
+function rplCard(ready, list, cls) {
+  const stRow = s => {
+    const r = s.lid ? RPL.rows[s.lid] : null;
+    const state = !s.lid ? '<span class="pill bad">리포트 ID 필요</span>' : !r ? '<span class="pill">링크 없음</span>'
+      : `<span class="pill good">링크 있음</span> ${rplLocked(r) ? '<span class="pill bad">잠김</span>' : r.pin_set_at ? '<span class="pill good">PIN 설정됨</span>' : '<span class="pill warn">PIN 미설정</span>'}${r.consent_ver ? '' : ' <span class="pill warn">동의 전</span>'}`;
+    const arm = k => RPL.arm === k + '|' + s.id;
+    const btn = (act, label, cls2, k) => `<button class="btn sm${cls2 || ''}${k && arm(k) ? ' danger armed' : ''}" data-act="${act}" data-sid="${esc(s.id)}">${k && arm(k) ? '한 번 더 누르면 실행' : label}</button>`;
+    const acts = !s.lid ? '' : !r ? btn('rpl-make', '링크 만들기', ' pri') : `${btn('rpl-copy', '링크 복사')} ${btn('rpl-qr', RPL.qr === s.id ? 'QR 닫기' : 'QR')} ${btn('rpl-pin-reset', 'PIN 초기화', ' danger', 'pin')} ${btn('rpl-regen', '링크 다시 만들기', ' danger', 'regen')} ${btn('rpl-revoke', '링크 막기', ' danger', 'rev')}`;
+    return `<tr><td class="lead"><b>${esc(s.name)}</b></td><td data-label="상태">${state}</td><td data-label="작업">${acts}</td></tr>`;
+  };
+  const qs = RPL.qr && list.find(x => x.id === RPL.qr); const qr = qs && qs.lid && RPL.rows[qs.lid] ? RPL.rows[qs.lid] : null;
+  const qrPanel = qr ? `<div class="card stack" style="align-items:center;text-align:center"><b>${esc(qs.name)} 학생 링크</b><div id="rpl-qrbox" style="width:220px;height:220px"></div><div class="small mono" style="overflow-wrap:anywhere">${esc(rplUrl(qr.token))}</div><div class="small muted">학생에게 이 QR이나 링크를 주세요. 링크를 가진 사람은 PIN만 알면 열 수 있으니 학생 본인에게만 전달해 주세요.</div></div>` : '';
+  const noId = list.filter(s => !s.lid).length, noLink = list.filter(s => s.lid && !RPL.rows[s.lid]).length;
+  return `<section class="card stack"><div class="card-h" style="margin:0"><h3>2. 학생 링크 (QR) · PIN</h3><span class="sub">학생은 로그인 없이 개인 링크로 들어와요. 처음 한 번 PIN을 정하고 개인정보에 동의해요</span></div>
+    ${!ready ? '<div class="banner">선생님 로그인 후 만들 수 있어요.</div>' : ''}${RPL.err ? `<div class="banner bad">${esc(RPL.err)}${/report_links|relation|does not exist|schema cache/i.test(RPL.err) ? ' · supabase/update-6.sql 을 실행했는지 확인해 주세요' : ''}</div>` : ''}
+    <div class="row" style="gap:8px;flex-wrap:wrap">${noId ? '<button class="btn" data-act="rpt-ids">리포트 ID 부여 (' + noId + '명)</button>' : ''}<button class="btn pri" data-act="rpl-make-all" ${ready && noLink ? '' : 'disabled'}>이 반 링크 모두 만들기${noLink ? ' (' + noLink + '명)' : ''}</button><button class="btn" data-act="rpl-copy-all" ${ready && list.some(s => s.lid && RPL.rows[s.lid]) ? '' : 'disabled'}>이 반 링크 목록 복사</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>이름</th><th>상태</th><th>작업</th></tr></thead><tbody>${list.map(stRow).join('') || '<tr><td colspan="3" class="empty">이 반에 학생이 없어요</td></tr>'}</tbody></table></div>${qrPanel}
+    <div class="small muted"><b>PIN 초기화</b>: 학생이 PIN을 잊었을 때. 학생이 새 PIN을 다시 정해요 · <b>링크 다시 만들기</b>: 링크가 다른 사람에게 퍼졌을 때. 예전 링크는 바로 안 열려요 · <b>링크 막기</b>: 그 학생의 접속을 끊어요 (다시 만들 수 있어요).</div></section>`;
+}
+function rplQrLib() { return window.qrcode ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'; s.onload = ok; s.onerror = () => no(new Error('QR 라이브러리를 불러오지 못했어요')); document.head.appendChild(s); }); }
+function rplDrawQr() {
+  const box = document.getElementById('rpl-qrbox'); if (!box || !RPL.qr) return; const s = S.roster.students.find(x => x.id === RPL.qr), r = s && s.lid && RPL.rows[s.lid]; if (!r) return;
+  rplQrLib().then(() => { const q = window.qrcode(0, 'M'); q.addData(rplUrl(r.token)); q.make(); box.innerHTML = q.createSvgTag(5, 2); const v = box.querySelector('svg'); if (v) { v.style.width = '220px'; v.style.height = '220px'; } }).catch(e => { box.innerHTML = '<div class="small bad-t">' + esc(e.message) + '</div>'; });
+}
+const rplStu = b => S.roster.students.find(x => x.id === b.dataset.sid);
+const rplDone = async (msg) => { RPL.arm = null; await rplLoad(true); if (msg) toast(msg); };
+const rplFail = (e, w) => { RPL.arm = null; toast((w || '처리하지 못했어요') + ': ' + ((e && e.message) || e)); render(); };
+function rplArm(b, k, run) { const key = k + '|' + b.dataset.sid; if (RPL.arm !== key) { RPL.arm = key; render(); return; } RPL.arm = null; run(); }
+ACT['rpl-make'] = async b => { const s = rplStu(b); if (!s || !s.lid || !RPT.sb) return; try { const r = await RPT.sb.from('report_links').insert({ student_code: s.lid, token: rplToken() }); if (r.error) throw new Error(r.error.message); await rplDone(s.name + ' 링크를 만들었어요'); } catch (e) { rplFail(e); } };
+ACT['rpl-make-all'] = async () => { const rows = rptStudents().filter(s => s.lid && !RPL.rows[s.lid]).map(s => ({ student_code: s.lid, token: rplToken() })); if (!rows.length || !RPT.sb) return; try { const r = await RPT.sb.from('report_links').insert(rows); if (r.error) throw new Error(r.error.message); await rplDone(rows.length + '명 링크를 만들었어요'); } catch (e) { rplFail(e); } };
+ACT['rpl-copy'] = b => { const s = rplStu(b), r = s && s.lid && RPL.rows[s.lid]; if (!r) return; copyText(rplUrl(r.token)); toast(s.name + ' 링크를 복사했어요'); };
+ACT['rpl-copy-all'] = () => { const L = rptStudents().filter(s => s.lid && RPL.rows[s.lid]).map(s => s.name + '\t' + rplUrl(RPL.rows[s.lid].token)); if (!L.length) return; copyText(L.join('\n')); toast(L.length + '명 링크 목록을 복사했어요 (이름, 링크)'); };
+ACT['rpl-qr'] = b => { RPL.qr = RPL.qr === b.dataset.sid ? null : b.dataset.sid; render(); if (RPL.qr) rplDrawQr(); };
+ACT['rpl-pin-reset'] = b => rplArm(b, 'pin', async () => { const s = rplStu(b); if (!s || !s.lid) return; try { let r = await RPT.sb.from('report_links').update({ pin_hash: null, pin_set_at: null, fails: 0, locked_until: null }).eq('student_code', s.lid); if (r.error) throw new Error(r.error.message); r = await RPT.sb.from('report_devices').delete().eq('student_code', s.lid); if (r.error) throw new Error(r.error.message); await rplDone(s.name + ' PIN을 초기화했어요. 학생이 새 PIN을 정해요'); } catch (e) { rplFail(e); } });
+ACT['rpl-regen'] = b => rplArm(b, 'regen', async () => { const s = rplStu(b); if (!s || !s.lid) return; try { let r = await RPT.sb.from('report_links').update({ token: rplToken(), pin_hash: null, pin_set_at: null, fails: 0, locked_until: null, consent_ver: null, consented_at: null }).eq('student_code', s.lid); if (r.error) throw new Error(r.error.message); r = await RPT.sb.from('report_devices').delete().eq('student_code', s.lid); if (r.error) throw new Error(r.error.message); RPL.sig = ''; await rplDone(s.name + ' 새 링크를 만들었어요. 예전 링크는 더 이상 안 열려요'); } catch (e) { rplFail(e); } });
+ACT['rpl-revoke'] = b => rplArm(b, 'rev', async () => { const s = rplStu(b); if (!s || !s.lid) return; try { const r = await RPT.sb.from('report_links').delete().eq('student_code', s.lid); if (r.error) throw new Error(r.error.message); RPL.sig = ''; if (RPL.qr === s.id) RPL.qr = null; await rplDone(s.name + ' 링크를 막았어요'); } catch (e) { rplFail(e); } });
 ACT['rpt-login'] = async () => {
   const em = ($('#rpt-em') || {}).value, pw = ($('#rpt-pw') || {}).value; RPT.err = '';
   if (!em || !pw) { toast('이메일과 비밀번호를 입력해 주세요'); return; }
@@ -7293,17 +7349,10 @@ CH['rpt-lid'] = el => {
   s.lid = v || undefined; commit('roster', `${s.name} 로그인 ID 변경`); render();
 };
 ACT['rpt-ids'] = () => {
-  const all = S.roster.students.filter(s => isLive(s)), used = new Map(); all.forEach(s => { if (s.lid && !rptAutoLid(s.lid)) used.set(s.lid, s.id); });
-  let n = 0; const noPhone = [], dup = [];
-  all.forEach(s => {
-    if (s.lid && !rptAutoLid(s.lid)) return;
-    const id = rptPhoneId(s);
-    if (!id) { noPhone.push(s.name); if (rptAutoLid(s.lid)) s.lid = undefined; return; }
-    if (used.has(id)) { const o = S.roster.students.find(x => x.id === used.get(id)); dup.push(`${s.name}(${o ? o.name + ' 학생과 ' : ''}같은 번호)`); return; }
-    s.lid = id; used.set(id, s.id); n++;
-  });
-  RPT.idInfo = [noPhone.length ? `전화번호가 없거나 이상한 학생 ${noPhone.length}명: ${noPhone.join(', ')} → 명단에서 전화번호를 입력해 주세요.` : '', dup.length ? `같은 번호를 쓰는 학생 ${dup.length}명: ${dup.join(', ')} → ID 칸에 번호 뒤에 _2 처럼 직접 붙여 구분해 주세요.` : ''].filter(Boolean);
-  if (n) { commit('roster', `학생 로그인 ID ${n}명 부여(전화번호)`); toast(`${n}명에게 전화번호 ID를 부여했어요`); } else toast('새로 부여할 학생이 없어요');
+  const used = new Set(S.roster.students.map(s => s.lid).filter(Boolean)); let n = 0;
+  S.roster.students.filter(s => isLive(s)).forEach(s => { if (s.lid && !rptAutoLid(s.lid)) return; let id; do { id = rptRandId(); } while (used.has(id)); used.add(id); s.lid = id; n++; });
+  RPT.idInfo = [];
+  if (n) { commit('roster', `학생 리포트 ID ${n}명 부여`); toast(`${n}명에게 리포트 ID를 부여했어요 (전화번호는 쓰지 않아요)`); } else toast('새로 부여할 학생이 없어요');
   render();
 };
 ACT['rpt-csv'] = () => {
