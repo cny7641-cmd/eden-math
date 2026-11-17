@@ -1566,6 +1566,7 @@ function markIdx() {
 function render() {
   if (!S.loaded) return;
   try { bgSync(); } catch (e) { console.warn(e); }
+  try { holSync(); } catch (e) { console.warn(e); }
   const root = $('#app');
   if (S.locked) { $('#view').innerHTML = `<div class="card empty"><h2>이 페이지는 편집 권한이 있는 계정으로 열어야 해요</h2><p>학생 정보가 들어 있어서 소유자만 볼 수 있어요.</p></div>`; return; }
   const bt = $('.brand b'), bs = $('.brand span'); if (bt) bt.textContent = S.cfg.brand.title; if (bs) bs.textContent = S.cfg.brand.sub;
@@ -6084,7 +6085,7 @@ function campCourse() {
     else html += nextCourse(c) ? nxt(nextCourse(c)) : endr();
     return `<div class="tbl-wrap"><table class="ctbl"><thead><tr><th>회차</th><th>구분</th>${ks.map(k => `<th>${esc(kLab(k, d))}</th>`).join('')}<th>단원</th></tr></thead><tbody>${html}</tbody></table></div>`;
   };
-  return `
+  return holGapBar() + `
   <div class="seg tabx" role="group" aria-label="과정">${COURSES.map(x => `<button data-act="k-course" data-c="${x}"${ccC(x)} aria-pressed="${x === c}">${cn(x)} <span class="small">${cnt(x)}</span></button>`).join('')}</div>
   <div class="row" style="justify-content:space-between"><div class="small muted">${cn(c)} 전체 ${len}회 · 지금 ${here.length}그룹이 듣고 있어요. 같은 회차를 반별로 나란히 볼 수 있어요.</div>
     <span class="row" style="gap:14px"><label class="small"><input type="checkbox" data-ch="k-thru" ${thru ? 'checked' : ''}> 다음 과정부터 졸업까지 쭉 보기</label><label class="small"><input type="checkbox" data-ch="k-allrows" ${all ? 'checked' : ''}> 지난 회차도 보기</label></span></div>
@@ -6233,6 +6234,25 @@ function campDetail(k) {
   <section class="card row" style="justify-content:space-between"><span class="small muted">폐강하면 이 반은 목록에서 없어지고 일정·강사 기록도 함께 지워져요. 지운 뒤에도 위쪽 알림에서 되돌릴 수 있어요.</span><button class="btn danger${S.ui.campArm === k.id ? ' armed' : ''}" data-act="k-del">${S.ui.campArm === k.id ? '정말 폐강' : '폐강'}</button></section>`;
 }
 
+/* 휴강 기록은 있는데 그날 수업이 그대로 남아 있는 반 찾기 (전체쌤·선생님 휴강만) */
+function holGaps() { const o = [];
+  S.campus.holLog.forEach(h => { if (!(h.scope === 'all' || (h.scope || '').startsWith('t:'))) return;
+    kcTargets(h.scope, h.d).forEach(k => { if ((h.ex || []).includes(k.id)) return; if (tl(k).some(e => e.d === h.d)) o.push({ h, k }); }); });
+  return o; }
+function holGapBar() { const g = holGaps(); if (!g.length) return '';
+  const lab = g.slice(0, 6).map(x => esc(mdw(x.h.d) + ' ' + kLabFull(x.k, x.h.d))).join(', ') + (g.length > 6 ? ' 외 ' + (g.length - 6) + '건' : '');
+  return `<section class="card row" role="alert" style="justify-content:space-between;gap:10px;border-color:#dc2626;background:#fef2f2"><span class="small"><b>휴강 기록은 있는데 수업이 그대로 남은 반이 ${g.length}건 있어요.</b> ${lab}</span><button class="btn sm pri" data-act="k-hol-fix">모두 휴강으로 바로잡기</button></section>`; }
+function holFixApply(g) {
+  g.forEach(x => { const k = x.k; if (!k.hol.includes(x.h.d)) k.hol.push(x.h.d); if (!x.h.ks.includes(k.id)) x.h.ks.push(k.id); });
+  [...new Set(g.map(x => x.k.id))].forEach(id => { const k = kById(id); const ds = g.filter(x => x.k.id === id).map(x => x.h.d).sort(); regenFrom(k, ds[0]); }); }
+let _holSyncing = false;
+/* 휴강 기록과 각 반 일정이 어긋나면 화면을 그리기 전에 자동으로 맞추고 저장해요 */
+function holSync() { if (_holSyncing || !S.campus || !S.campus.holLog || !S.campus.holLog.length) return; _holSyncing = true;
+  try { const g = holGaps(); if (!g.length) return; holFixApply(g); autoCommit('campus', `휴강 자동 반영 ${g.length}건`); setTimeout(() => toast(`휴강 기록과 안 맞던 ${g.length}건을 자동으로 맞췄어요`), 300); }
+  catch (e) { console.warn(e); } finally { _holSyncing = false; } }
+function holExempt(kid, d) { S.campus.holLog.forEach(h => { if (h.d === d && h.scope !== undefined) { h.ex = h.ex || []; if (!h.ex.includes(kid)) h.ex.push(kid); } }); }
+ACT['k-hol-fix'] = () => { const g = holGaps(); if (!g.length) return; holFixApply(g);
+  commit('campus', `휴강 누락 ${g.length}건 바로잡기`); const y = window.scrollY; render(); window.scrollTo(0, y); saveAll(true).then(() => toast(`${g.length}건을 휴강으로 바로잡고 저장했어요`)); };
 const kcScopes = () => (S.ui.kcScopes && S.ui.kcScopes.length ? S.ui.kcScopes : ['all']);
 function kcImpList(d) { const hs = S.campus.holLog.filter(h => h.d === d); const o = [];
   S.campus.classes.forEach(k => { if ((k.hol || []).includes(d) && !hs.some(h => h.ks.includes(k.id))) o.push({ t: 'k', id: k.id }); });
@@ -6261,7 +6281,7 @@ function campHol() {
   const id_ = S.ui.kcImp; const impL = id_ ? kcImpList(id_) : [];
   const impPanel = id_ && impL.length ? `<div class="card stack kc-imp"><div class="row"><b>${mdw(id_)} 기존 휴강 ${impL.length}건</b><span class="small muted">날짜를 바꾸면 휴강일이 옮겨지고, 취소하면 이후 회차가 다시 계산돼요</span><span class="grow"></span><button class="btn sm danger" data-act="kc-imp-del" data-d="${id_}">이 날 전체 취소</button><button class="btn sm" data-act="kc-imp">닫기</button></div>${impL.map(x => { const k = x.t === 'k' ? kById(x.id) : x.t === 'c' ? clsById(x.id) : null; const lab = x.t === 'cl' ? '🩺 토요의무클리닉' : x.t === 'c' ? `<span class="pill acc">내 반</span> ${esc(k.name)}` : `${cChip(offC(k, id_))} ${esc(kLabFull(k, id_))}`; return `<div class="row" style="gap:8px"><span class="grow">${lab}</span><input type="date" style="width:150px" aria-label="휴강일 변경" data-ch="kc-imp-mv" data-t="${x.t}" data-k="${x.id}" data-d="${id_}" value="${id_}"><button class="btn sm" data-act="kc-imp-del" data-d="${id_}" data-t="${x.t}" data-k="${x.id}">취소</button></div>`; }).join('')}</div>` : '';
   const mo = S.ui.kcMemoOpen; const me = S.ui.kcMemoE ? S.campus.events.find(e => e.id === S.ui.kcMemoE) : null; const md0 = me ? me.d : (S.ui.kcMemoD || sel[0] || todayStr());
-  return `
+  return holGapBar() + `
   <section class="card stack"><div class="card-h" style="margin:0"><h3>학원일정</h3><span class="sub">① 쉬는 선생님을 체크 → ② 달력에서 날짜를 체크 → ③ [휴강 적용]. 그날 수업이 있는 반만 쉬고 그 뒤 회차가 한 칸씩 밀려요. 전체쌤·최나영T를 고르면 내 반 일정과 토요의무클리닉(토요일)에도 같이 반영돼요. 칸의 ×로 취소해요</span></div>
     <div class="row" style="gap:10px 14px;flex-wrap:wrap;align-items:center">
       <span class="row kc-tch" role="group" aria-label="휴강 선생님"><label class="kc-t"><input type="checkbox" data-ch="kc-scope" data-s="all"${scs.includes('all') ? ' checked' : ''}> 전체쌤</label>${tl_.map(t => `<label class="kc-t"><input type="checkbox" data-ch="kc-scope" data-s="t:${esc(t)}"${scs.includes('t:' + t) ? ' checked' : ''}> ${esc(t)}</label>`).join('')}</span>
@@ -6281,7 +6301,7 @@ CH['kc-scope'] = el => { const v = el.dataset.s; let a = kcScopes().slice(); if 
 CH['kc-pick'] = el => { const a = kcSel(); const d = el.dataset.d; const i = a.indexOf(d); if (el.checked && i < 0) a.push(d); else if (!el.checked && i >= 0) a.splice(i, 1); const y = window.scrollY; render(); window.scrollTo(0, y); };
 ACT['kc-imp'] = b => { const d = b.dataset.d; S.ui.kcImp = d && S.ui.kcImp !== d ? d : null; const y = window.scrollY; render(); window.scrollTo(0, y); };
 ACT['kc-imp-del'] = b => { const d = b.dataset.d; const L = b.dataset.k ? [{ t: b.dataset.t, id: b.dataset.k }] : kcImpList(d); let n = 0, dc = false, dk = false, dl = false;
-  L.forEach(x => { if (x.t === 'k') { const k = kById(x.id); if (!k || !k.hol.includes(d)) return; k.hol = k.hol.filter(y => y !== d); regenFrom(k, d); n++; dk = true; }
+  L.forEach(x => { if (x.t === 'k') { const k = kById(x.id); if (!k || !k.hol.includes(d)) return; holExempt(k.id, d); k.hol = k.hol.filter(y => y !== d); regenFrom(k, d); n++; dk = true; }
     else if (x.t === 'c') { const c = clsById(x.id); if (!c) return; cfgHolDel(c, d); n++; dc = true; }
     else { S.clinic.hol = S.clinic.hol || {}; S.clinic.hol[d] = false; n++; dl = true; } });
   if (!n) return; if (dk) commit('campus', `기존 휴강 취소 ${mdw(d)}`); if (dc) commit('cfg', `내 반 휴강 취소 ${mdw(d)}`); if (dl) commit('clinic', `클리닉 휴강 취소: ${d}`);
@@ -6291,7 +6311,7 @@ CH['kc-imp-mv'] = el => { const { t, k: id, d } = el.dataset, nd = el.value; if 
   const c = t === 'k' ? kById(id) : clsById(id); if (!c) return;
   if (!classDows(c).includes(dowOf(nd))) { toast(`${c.name}은(는) ${mdw(nd)}에 수업이 없는 요일이에요`); el.value = d; return; }
   if ((c.hol || []).includes(nd)) { toast('그 날은 이미 휴강이에요'); el.value = d; return; }
-  c.hol = c.hol.filter(x => x !== d).concat(nd); if (t === 'k') regenFrom(c, d < nd ? d : nd); else cfgRegen(c, d < nd ? d : nd); commit(t === 'k' ? 'campus' : 'cfg', `${c.name} 휴강 이동: ${md(d)} → ${md(nd)}`); done(`${c.name} 휴강을 ${mdw(nd)}로 옮기고 회차를 다시 계산했어요`); };
+  if (t === 'k') holExempt(c.id, d); c.hol = c.hol.filter(x => x !== d).concat(nd); if (t === 'k') regenFrom(c, d < nd ? d : nd); else cfgRegen(c, d < nd ? d : nd); commit(t === 'k' ? 'campus' : 'cfg', `${c.name} 휴강 이동: ${md(d)} → ${md(nd)}`); done(`${c.name} 휴강을 ${mdw(nd)}로 옮기고 회차를 다시 계산했어요`); };
 ACT['kc-clear'] = () => { S.ui.kcSel = []; const y = window.scrollY; render(); window.scrollTo(0, y); };
 CH['kc-go'] = el => { const p = el.dataset.p; let ym = kcMon();
   if (p === 'd') { if (!/^\d{4}-\d{2}-\d{2}$/.test(el.value)) return; ym = el.value.slice(0, 7); }
@@ -6339,7 +6359,7 @@ FORM['k-hol'] = () => {
   const k = kById(S.ui.campCls); const dd = $('#kh-d').value; if (!k || !dd) return;
   if (!k.hol.includes(dd)) k.hol.push(dd); regenFrom(k, dd); commit('campus', `${k.name} 휴강: ${md(dd)}`); render(); toast('휴강을 담았어요. 밀린 일정을 확인하고 저장을 눌러 주세요');
 };
-ACT['k-hol-del'] = b => { const k = kById(S.ui.campCls); if (!k) return; k.hol = k.hol.filter(x => x !== b.dataset.d); regenFrom(k, b.dataset.d); commit('campus', `${k.name} 휴강 취소: ${md(b.dataset.d)}`); render(); toast('휴강 취소를 담았어요. 저장을 눌러야 기록돼요'); };
+ACT['k-hol-del'] = b => { const k = kById(S.ui.campCls); if (!k) return; holExempt(k.id, b.dataset.d); k.hol = k.hol.filter(x => x !== b.dataset.d); regenFrom(k, b.dataset.d); commit('campus', `${k.name} 휴강 취소: ${md(b.dataset.d)}`); render(); toast('휴강 취소를 담았어요. 저장을 눌러야 기록돼요'); };
 CH['k-date'] = el => {
   const k = kById(S.ui.campCls); const i = +el.dataset.i; const v = el.value; if (!k || !v) { render(); return; }
   const t = k.tl; if ((i > 0 && v <= t[i - 1][2]) || (i < t.length - 1 && v >= t[i + 1][2])) { toast('앞뒤 회차 날짜 사이여야 해요'); render(); return; }
