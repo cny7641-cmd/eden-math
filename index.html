@@ -6096,7 +6096,7 @@ function campCourse() {
         <button class="btn sm" data-act="k-addto" data-g="${esc(s.g.id)}" data-c="${c}">+ ${cn(c)}부터 반 추가</button>
         ${nextCourse(c) ? `<button class="btn sm" data-act="k-addto" data-g="${esc(s.g.id)}" data-c="${nextCourse(c)}">+ ${cn(nextCourse(c))}부터 반 추가</button>` : ''}</div></div>
     ${tbl(s)}</section>`).join('') || `<section class="card empty">지금 ${cn(c)}을 듣는 그룹이 없어요.</section>`}
-  ${coming.length ? `<section class="card stack"><div class="card-h" style="margin:0"><h3>${cn(c)}에 들어올 그룹</h3></div>${coming.map(x => `<div class="soon-r"><span class="mono">${dRange(x.ds)}</span><span><b>${esc(grpName(x.s.g))}</b></span><span class="small">${x.s.ks.map(k => esc(kLab(k, d))).join(', ')} <button class="btn sm" data-act="k-addto" data-g="${esc(x.s.g.id)}" data-c="${c}">+ ${cn(c)}부터 반 추가</button></span></div>`).join('')}</section>` : ''}`;
+  ${coming.length ? `<section class="card stack"><div class="card-h" style="margin:0"><h3>${cn(c)}에 들어올 그룹</h3></div>${coming.map(x => { const on = S.ui.campGrp === x.s.g.id; return `<div class="soon-r" id="grp-${esc(x.s.g.id)}"${on ? ' style="background:var(--accent-soft);border-radius:8px"' : ''}><span class="mono">${dRange(x.ds)}</span><span><b>${esc(grpName(x.s.g))}</b></span><span class="small">${x.s.ks.map(k => esc(kLab(k, d))).join(', ')} <button class="btn sm" data-act="k-addto" data-g="${esc(x.s.g.id)}" data-c="${c}">+ ${cn(c)}부터 반 추가</button></span></div>${on ? `<div style="margin:4px 0 10px"${ccC(c)}><div class="small muted" style="margin-bottom:4px">${esc(grpName(x.s.g))} · 개강 예정 회차별 날짜</div>${tbl({ g: x.s.g, nmin: 1, nmax: 0 })}</div>` : ''}`; }).join('')}</section>` : ''}`;
 }
 
 function campWeek() {
