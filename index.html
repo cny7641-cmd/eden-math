@@ -1567,6 +1567,7 @@ function render() {
   if (!S.loaded) return;
   try { bgSync(); } catch (e) { console.warn(e); }
   try { holSync(); } catch (e) { console.warn(e); }
+  try { piiSync(); } catch (e) { console.warn(e); }
   const root = $('#app');
   if (S.locked) { $('#view').innerHTML = `<div class="card empty"><h2>이 페이지는 편집 권한이 있는 계정으로 열어야 해요</h2><p>학생 정보가 들어 있어서 소유자만 볼 수 있어요.</p></div>`; return; }
   const bt = $('.brand b'), bs = $('.brand span'); if (bt) bt.textContent = S.cfg.brand.title; if (bs) bs.textContent = S.cfg.brand.sub;
@@ -1747,7 +1748,7 @@ function spMigrate() {
   if ((S.cfg.special || []).length) { S.cfg.special = []; ch = true; }
   const g = S.roster.grp || {};
   Object.keys(g).forEach(k => { const cid = k === 'sp' ? 'c_sp' : k === 'ind' ? 'c_ind' : k.slice(2); if (!S.cfg.classes.some(c => c.id === cid)) return;
-    (g[k] || []).forEach(x => { if (!S.roster.students.some(y => y.cls === cid && y.name === x.name)) { S.roster.students.push({ id: x.id || uid('s'), name: x.name, cls: cid, clinic: '', memo: x.memo || '', school: x.school || '', phone: x.phone || '' }); rch = true; } }); delete g[k]; rch = true; });
+    (g[k] || []).forEach(x => { if (!S.roster.students.some(y => y.cls === cid && y.name === x.name)) { S.roster.students.push({ id: x.id || uid('s'), name: x.name, cls: cid, clinic: '', memo: x.memo || '' }); rch = true; } }); delete g[k]; rch = true; });
   if (ch) commit('cfg', '특강반·개별진도반을 반으로 전환'); if (rch) commit('roster', '특강·개별진도반 명단을 반 명단으로 전환');
 }
 /* 종료한 특강반: 마지막 수업 일주일 뒤에 명단에서 빼고 '종료한 특강반'에 보관해요 (기록은 그대로) */
@@ -3291,8 +3292,6 @@ function rosBtns(s) { if (isIndiv(clsById(s.cls))) return `${attEnd(s.cls, s.id)
 ACT['stu-del-ask'] = b => { const st = S.roster.students.find(x => x.id === b.dataset.id); if (!st) return; ACT['stu-del'](b); toast(`${st.name} 삭제 예정이에요. 저장하면 수강 기록까지 지워지고, 저장 전에는 '삭제 취소'로 되돌릴 수 있어요`); };
 ACT['ros-edit'] = b => { S.ui.rosEdC = Object.assign({}, S.ui.rosEdC || {}); S.ui.rosEdC[b.dataset.id] = !S.ui.rosEdC[b.dataset.id]; if (!S.ui.rosEdC[b.dataset.id]) S.ui.stuAct = null; render(); };
 function stuEditRow(s, sv, svIds) { return `<tr><td style="min-width:110px"><input type="text" aria-label="이름" data-ch="stu-edit" data-id="${s.id}" data-f="name" value="${esc(s.name)}">${sv && !svIds.has(s.id) ? ' <span class="pill acc">추가 예정</span>' : ''}</td>
-        <td style="min-width:150px;white-space:nowrap"><input type="tel" inputmode="tel" style="width:135px" aria-label="전화번호" placeholder="010-0000-0000" data-ch="stu-edit" data-id="${s.id}" data-f="phone" value="${esc(s.phone || '')}">${s.phone ? ` <a href="tel:${esc(String(s.phone).replace(/[^\d+]/g, ''))}" aria-label="${esc(s.name)} 전화 걸기" title="전화 걸기">📞</a>` : ''}</td>
-        <td style="min-width:90px"><input type="text" aria-label="학교" placeholder="학교" data-ch="stu-edit" data-id="${s.id}" data-f="school" value="${esc(s.school || '')}"></td>
         <td style="min-width:64px;width:70px"><input type="text" inputmode="numeric" maxlength="2" aria-label="학년" placeholder="학년" data-ch="stu-edit" data-id="${s.id}" data-f="grade" title="올해(3월 기준) 학년 숫자만 입력하세요. 해마다 3월에 자동으로 올라가요" value="${esc(gradeNow(s) ? gradeNow(s).n : '')}"></td>
         <td><select style="width:auto" aria-label="클리닉 타임" data-ch="stu-edit" data-id="${s.id}" data-f="clinic">${[['', '없음'], ['1', '1타임 10시'], ['2', '2타임 12시'], ['3', '3타임 14시']].map(([v, l]) => `<option value="${v}"${(s.clinic || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></td>
         <td style="min-width:180px"><input type="text" aria-label="메모" data-ch="stu-edit" data-id="${s.id}" data-f="memo" value="${esc(s.memo || '')}" placeholder="메모"><label class="small muted row" style="gap:6px;margin-top:4px" title="첫 수업일. 이 날짜 전 범위는 클리닉·기록에 안 나와요">입학·편입일 <input type="date" style="width:auto" aria-label="입학·편입일" data-ch="stu-joined" data-id="${s.id}" value="${esc(s.joined || '')}"></label></td>
@@ -3310,8 +3309,8 @@ function classCard(cls) {
       <label class="small muted row" style="gap:6px">클리닉 프린트 요일 <select class="w-sm" data-ch="cls-clinic" data-id="${cls.id}" style="width:auto"><option value="-1"${cls.clinicDow < 0 ? ' selected' : ''}>없음</option>${[...DOW].map((d, i) => `<option value="${i}"${+cls.clinicDow === i ? ' selected' : ''}>${d}</option>`).join('')}</select></label>
       <label class="small muted row" style="gap:6px" title="체크하면 프린트하는 날 그 반 수업 회차도 클리닉 범위에 넣어요"><input type="checkbox" data-ch="cls-clinic-inc" data-id="${cls.id}"${cls.clinicIncl ? ' checked' : ''}> 프린트하는 날 수업도 포함</label></div>
     ${cls.sp ? spRangeHtml(cls) : chainHtml(cls, S.ui.date)}${cls.sp ? '' : `<div class="small muted">${esc(transitionText(cls, S.ui.date))} 학생은 반을 따라 과정이 자동으로 바뀌어요.</div>`}
-    <div class="tbl-wrap"><table class="ros-tbl${!isIndiv(cls) && (S.ui.rosEdC || {})[cls.id] ? '' : ' noclin-c'}"><thead><tr>${sortTh('ros', 'name', '이름')}<th>전화번호</th>${sortTh('ros', 'school', '학교')}${sortTh('ros', 'grade', '학년')}${sortTh('ros', 'clinic', '토요 클리닉')}<th>메모</th><th></th></tr></thead><tbody>
-      ${(sortSt('ros') ? sortBy(list, 'ros', { name: s => s.name, school: s => s.school || '', grade: s => (gradeNow(s) || { ord: 0 }).ord, clinic: s => s.clinic || '' }) : list.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'))).map(s => { const ed = !isIndiv(cls) && (S.ui.rosEdC || {})[cls.id]; return (ed ? stuEditRow(s, sv, svIds) : `<tr><td style="min-width:110px">${nameLkRos(s)}${sv && !svIds.has(s.id) ? ' <span class="pill acc">추가 예정</span>' : ''}${s.joined ? `<div class="small muted">${md(s.joined)} 입학·편입</div>` : ''}</td><td style="min-width:150px;white-space:nowrap">${s.phone ? `${esc(s.phone)} <a href="tel:${esc(String(s.phone).replace(/[^\d+]/g, ''))}" aria-label="${esc(s.name)} 전화 걸기" title="전화 걸기">📞</a>` : '<span class="muted">-</span>'}</td><td>${s.school ? esc(s.school) : '<span class="muted">-</span>'}</td><td>${gradeTxt(s) ? esc(gradeTxt(s)) : '<span class="muted">-</span>'}</td><td>${({ '1': '1타임 10시', '2': '2타임 12시', '3': '3타임 14시' })[s.clinic || ''] || '<span class="muted">없음</span>'}</td><td style="min-width:180px">${isIndiv(cls) ? `<input type="text" aria-label="${esc(s.name)} 메모" data-ch="stu-edit" data-id="${s.id}" data-f="memo" value="${esc(s.memo || '')}" placeholder="메모">` : (s.memo ? esc(s.memo) : '<span class="muted">-</span>')}</td><td></td></tr>`) + ((S.ui.stuAct || {}).id === s.id ? stuActRow(s) : ''); }).join('') + ghosts.map(g => `<tr class="done-row"><td>${esc(g.name)} <span class="pill bad" style="text-decoration:none">삭제 예정</span></td><td colspan="6"></td><td style="text-decoration:none"><button class="btn sm" data-act="stu-undel" data-id="${g.id}">삭제 취소</button></td></tr>`).join('') || (isIndiv(cls) && attStus(cls.id).some(x => x.linked) ? '' : '<tr><td colspan="8" class="empty">학생이 없어요. 아래에서 추가해 주세요.</td></tr>')}${isIndiv(cls) ? attStus(cls.id).filter(x => x.linked).map(x => `<tr class="note-row" style="background:var(--bg-soft,#f6f8fb)"><td style="min-width:110px"><b>${esc(x.name)}</b> ${cchip(x.cls)}</td><td>${esc(x.phone || '')}</td><td>${esc(x.school || '')}</td><td>${esc(gradeTxt(x))}</td><td>${x.clinic ? esc(x.clinic) + '타임' : '없음'}</td><td><input type="text" aria-label="${esc(x.name)} 메모" data-ch="stu-edit" data-id="${x.id}" data-f="memo" value="${esc(x.memo || '')}" placeholder="메모 (정규반 학생 · 연결됨 · 정규반 메모와 같아요)"></td><td></td></tr>`).join('') : ''}</tbody></table></div>
+    <div class="tbl-wrap"><table class="ros-tbl${!isIndiv(cls) && (S.ui.rosEdC || {})[cls.id] ? '' : ' noclin-c'}"><thead><tr>${sortTh('ros', 'name', '이름')}${sortTh('ros', 'grade', '학년')}${sortTh('ros', 'clinic', '토요 클리닉')}<th>메모</th><th></th></tr></thead><tbody>
+      ${(sortSt('ros') ? sortBy(list, 'ros', { name: s => s.name, school: s => s.school || '', grade: s => (gradeNow(s) || { ord: 0 }).ord, clinic: s => s.clinic || '' }) : list.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'))).map(s => { const ed = !isIndiv(cls) && (S.ui.rosEdC || {})[cls.id]; return (ed ? stuEditRow(s, sv, svIds) : `<tr><td style="min-width:110px">${nameLkRos(s)}${sv && !svIds.has(s.id) ? ' <span class="pill acc">추가 예정</span>' : ''}${s.joined ? `<div class="small muted">${md(s.joined)} 입학·편입</div>` : ''}</td><td>${gradeTxt(s) ? esc(gradeTxt(s)) : '<span class="muted">-</span>'}</td><td>${({ '1': '1타임 10시', '2': '2타임 12시', '3': '3타임 14시' })[s.clinic || ''] || '<span class="muted">없음</span>'}</td><td style="min-width:180px">${isIndiv(cls) ? `<input type="text" aria-label="${esc(s.name)} 메모" data-ch="stu-edit" data-id="${s.id}" data-f="memo" value="${esc(s.memo || '')}" placeholder="메모">` : (s.memo ? esc(s.memo) : '<span class="muted">-</span>')}</td><td></td></tr>`) + ((S.ui.stuAct || {}).id === s.id ? stuActRow(s) : ''); }).join('') + ghosts.map(g => `<tr class="done-row"><td>${esc(g.name)} <span class="pill bad" style="text-decoration:none">삭제 예정</span></td><td colspan="4"></td><td style="text-decoration:none"><button class="btn sm" data-act="stu-undel" data-id="${g.id}">삭제 취소</button></td></tr>`).join('') || (isIndiv(cls) && attStus(cls.id).some(x => x.linked) ? '' : '<tr><td colspan="8" class="empty">학생이 없어요. 아래에서 추가해 주세요.</td></tr>')}${isIndiv(cls) ? attStus(cls.id).filter(x => x.linked).map(x => `<tr class="note-row" style="background:var(--bg-soft,#f6f8fb)"><td style="min-width:110px"><b>${esc(x.name)}</b> ${cchip(x.cls)}</td><td>${esc(gradeTxt(x))}</td><td>${x.clinic ? esc(x.clinic) + '타임' : '없음'}</td><td><input type="text" aria-label="${esc(x.name)} 메모" data-ch="stu-edit" data-id="${x.id}" data-f="memo" value="${esc(x.memo || '')}" placeholder="메모 (정규반 학생 · 연결됨 · 정규반 메모와 같아요)"></td><td></td></tr>`).join('') : ''}</tbody></table></div>
     ${isIndiv(cls) ? '<div class="small muted">이 반의 학생 담기·연결·수정·삭제는 아래 [회차별 명단]에서 해요.</div>' : stuAddHtml(cls)}
     <div class="row end"><button class="btn danger" data-act="cls-del" data-id="${cls.id}">반 삭제</button></div></section>`;
 }
@@ -3353,12 +3352,22 @@ function rosOverview() {
   return `<div class="ro-grid2" style="gap:30px">${cardsH}</div>
   <div class="ro-div"><span>명단 · 이동 · 반 추가</span></div>
   <section class="card stack"><div class="card-h" style="margin:0"><h3>전체 명단</h3><span class="sub">${rows.length}명 · 이름순 · 머리글을 눌러 정렬</span><span class="grow"></span>${rptCfg().SUPABASE_URL ? '<button class="btn sm" data-act="wn-sync" title="명단·반 일정·강의계획서는 저장할 때마다 자동으로 오답이음에 올라가요. 바로 보내고 싶을 때 눌러요">오답이음으로 지금 보내기</button> ' : ''}<button class="btn sm" data-act="ros-export-wn" title="학생·반 명단을 파일로 저장하면 PC의 오답파일 프로그램에 자동 반영돼요">오답 프로그램용 명단 받기</button> <button class="btn sm" data-act="ros-all-toggle" aria-expanded="${open}">${open ? '접기' : '펼치기'}</button></div>
-    ${open ? `<div class="tbl-wrap"><table class="ros-tbl noclin"><thead><tr><th>#</th>${sortTh('rosall', 'name', '이름')}${sortTh('rosall', 'cls', '반')}<th>전화번호</th>${sortTh('rosall', 'school', '학교')}${sortTh('rosall', 'grade', '학년')}${sortTh('rosall', 'clinic', '토요 클리닉')}<th>메모</th></tr></thead><tbody>${rows.map((x, i) => `<tr><td class="small muted">${i + 1}</td><td style="white-space:nowrap">${nameLkRos(x.s)}</td><td>${cchip(x.cls.id)}</td><td style="white-space:nowrap">${x.s.phone ? esc(x.s.phone) : '<span class="muted">-</span>'}</td><td>${x.s.school ? esc(x.s.school) : '<span class="muted">-</span>'}</td><td>${gradeTxt(x.s) ? esc(gradeTxt(x.s)) : '<span class="muted">-</span>'}</td><td>${({ '1': '1타임', '2': '2타임', '3': '3타임' })[x.s.clinic || ''] || '<span class="muted">없음</span>'}</td><td>${x.s.memo ? esc(x.s.memo) : '<span class="muted">-</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}</section>`;
+    ${open ? `<div class="tbl-wrap"><table class="ros-tbl noclin"><thead><tr><th>#</th>${sortTh('rosall', 'name', '이름')}${sortTh('rosall', 'cls', '반')}${sortTh('rosall', 'grade', '학년')}${sortTh('rosall', 'clinic', '토요 클리닉')}<th>메모</th></tr></thead><tbody>${rows.map((x, i) => `<tr><td class="small muted">${i + 1}</td><td style="white-space:nowrap">${nameLkRos(x.s)}</td><td>${cchip(x.cls.id)}</td><td>${gradeTxt(x.s) ? esc(gradeTxt(x.s)) : '<span class="muted">-</span>'}</td><td>${({ '1': '1타임', '2': '2타임', '3': '3타임' })[x.s.clinic || ''] || '<span class="muted">없음</span>'}</td><td>${x.s.memo ? esc(x.s.memo) : '<span class="muted">-</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}</section>`;
+}
+/* 학생 전화번호·학교 이름은 보관하지 않아요: 남아 있으면 학년만 남기고 자동으로 지워요 */
+let _piiBusy = false;
+function piiSync() {
+  if (_piiBusy || !S.roster || !S.roster.students) return; _piiBusy = true;
+  try {
+    let n = 0; const fix = x => { if (!x || !(x.phone || x.school)) return; splitSch(x); delete x.phone; delete x.school; n++; };
+    S.roster.students.forEach(fix); (S.roster.gone || []).forEach(fix); Object.values(S.roster.grp || {}).forEach(a => (a || []).forEach(fix));
+    if (n) { autoCommit('roster', `개인정보 삭제: 학생 ${n}명 전화번호·학교`); setTimeout(() => toast(`학생 ${n}명의 전화번호·학교 이름을 지웠어요 (학년은 그대로예요)`), 300); }
+  } catch (e) { console.warn(e); } finally { _piiBusy = false; }
 }
 ACT['ros-all-toggle'] = () => { S.ui.rosAllOpen = !S.ui.rosAllOpen; render(); };
 /* 오답파일 프로그램(PC)용 명단 내보내기: 파일 이름은 그대로 두세요. PC 프로그램이 다운로드 폴더에서 자동으로 읽어요 */
 function wnPayload() {
-  const list = S.roster.students.filter(s => isLive(s) && !s.out && s.name).map(s => ({ src: s.id, cls: (clsById(s.cls) || {}).name || '', name: s.name, phone: String(s.phone || '').replace(/[^0-9]/g, '') }));
+  const list = S.roster.students.filter(s => isLive(s) && !s.out && s.name).map(s => ({ src: s.id, cls: (clsById(s.cls) || {}).name || '', name: s.name, phone: '' }));
   if (!list.length) return null;
   /* 반별 현재 과정: 반 일정(tl)에서 오늘 날짜에 해당하는 항목의 과정(2-1, 2-2, 3-1, 특강 등). 특강반도 같은 구조로 들어가요 */
   const today = todayStr();
@@ -3994,7 +4003,7 @@ function parseRosterSheet(a) {
   for (let r = h + 1; r < a.length; r++) {
     const row = a[r] || []; const idx = xs(row[0]), nm = xs(row[1]);
     if (!/^\d+$/.test(idx) || !nm || /^\d+$/.test(nm)) continue;
-    out.push(Object.assign({ name: nm, school: xs(row[2]), phone: fmtPhone(row[3]) }, (() => { const t = splitSch({ school: xs(row[2]) }); return t.grade != null ? { school: t.school, grade: t.grade } : {}; })()));
+    out.push(Object.assign({ name: nm }, (() => { const t = splitSch({ school: xs(row[2]) }); return t.grade != null ? { grade: t.grade } : {}; })()));
   }
   return out;
 }
@@ -4093,8 +4102,8 @@ async function impReadImages(files, mode) {
       if (!rows.length || !course) { toast('이미지에서 강의계획서를 읽지 못했어요. 더 또렷한 캡처로 다시 올려 주세요'); }
       else { impAdd(nm, { plans: [{ course, rows, file: nm, sheet: '이미지' }], dateSets: [], rosters: [], clinics: [] }, 'plan'); S.ui.impBusy = false; if (impAuto('plan')) return; toast(`${cn(course)} ${rows.length}회차를 읽었어요. 값이 맞는지 확인하고 [화면에 반영하기]를 눌러 주세요`); }
     } else {
-      const out = await SAMPLE.json(`첨부 이미지는 학원 반 명단(출석부)입니다. 반별로 학생을 읽어 JSON만 출력하세요.\n규칙: 글씨가 불확실한 학생은 제외합니다. 반 이름이 표에 없으면 class는 빈 문자열입니다. school은 학교 이름, grade는 학년 숫자(모르면 빈 문자열), phone은 전화번호입니다.\n출력 형식: {"classes":[{"class":"","students":[{"name":"","school":"","grade":"","phone":""}]}]}`, { images: blobs, modelTier: 'default', cache: false });
-      const rs = ((out && out.classes) || []).map(c => ({ id: uid('r'), file: nm, sheet: xs(c.class) || '이미지 명단', course: null, students: (c.students || []).filter(x => x && xs(x.name)).map(x => { const t = splitSch({ school: xs(x.school) }); const g = xs(x.grade).replace(/\D/g, ''); return { name: xs(x.name), school: t.school || '', grade: t.grade != null ? t.grade : (g ? +g : undefined), phone: fmtPhone(x.phone) }; }) })).filter(r => r.students.length);
+      const out = await SAMPLE.json(`첨부 이미지는 학원 반 명단(출석부)입니다. 반별로 학생을 읽어 JSON만 출력하세요.\n규칙: 글씨가 불확실한 학생은 제외합니다. 반 이름이 표에 없으면 class는 빈 문자열입니다. grade는 학년 숫자(모르면 빈 문자열)입니다. 학교 이름과 전화번호는 읽지 않습니다.\n출력 형식: {"classes":[{"class":"","students":[{"name":"","grade":""}]}]}`, { images: blobs, modelTier: 'default', cache: false });
+      const rs = ((out && out.classes) || []).map(c => ({ id: uid('r'), file: nm, sheet: xs(c.class) || '이미지 명단', course: null, students: (c.students || []).filter(x => x && xs(x.name)).map(x => { const t = splitSch({ school: xs(x.school) }); const g = xs(x.grade).replace(/\D/g, ''); return { name: xs(x.name), grade: t.grade != null ? t.grade : (g ? +g : undefined) }; }) })).filter(r => r.students.length);
       if (!rs.length) toast('이미지에서 명단을 읽지 못했어요. 더 또렷한 캡처로 다시 올려 주세요');
       else { impAdd(nm, { plans: [], dateSets: [], rosters: rs, clinics: [] }, 'roster'); const im = S.ui.imp; im.rosters.forEach(r => { if (r.target) return; const hit = S.cfg.classes.find(c => c.name === r.sheet) || (liveCls().some(c => c.id === S.ui.rosCls) ? clsById(S.ui.rosCls) : null); r.target = hit ? hit.id : 'skip'; }); S.ui.impBusy = false; if (impAuto('roster')) return; toast(`${rs.reduce((a, r) => a + r.students.length, 0)}명을 읽었어요. 반을 확인하고 [화면에 반영하기]를 눌러 주세요`); }
     }
@@ -4179,7 +4188,7 @@ ACT['imp-apply'] = () => {
   let gAdd = 0;
   im.rosters.filter(r => String(r.target).startsWith('grp:')).forEach(r => {
     const key = r.target.slice(4), cur = grpOf(key);
-    r.students.forEach(s => { const h = cur.find(x => x.name === s.name); if (h) { ['school', 'grade', 'phone'].forEach(k => { if (s[k]) h[k] = s[k]; }); } else { cur.push({ id: uid('gs'), name: s.name, school: s.school || '', grade: s.grade || '', phone: s.phone || '', memo: '' }); gAdd++; } });
+    r.students.forEach(s => { const h = cur.find(x => x.name === s.name); if (h) { ['grade'].forEach(k => { if (s[k]) h[k] = s[k]; }); } else { cur.push({ id: uid('gs'), name: s.name, grade: s.grade || '', memo: '' }); gAdd++; } });
     if (im.delMissing) S.roster.grp[key] = cur.filter(x => r.students.some(s => s.name === x.name));
   });
   if (gAdd) { commit('roster', `특강·개별진도반 명단 엑셀 반영: ${gAdd}명`); log.push(`특강·개별진도반 학생 ${gAdd}명`); }
@@ -4196,10 +4205,10 @@ ACT['imp-apply'] = () => {
     if (!cls) return;
     r.students.forEach(s => {
       const here = S.roster.students.find(x => x.cls === cls.id && x.name === s.name);
-      if (here) { let ch = false; ['school', 'grade', 'phone'].forEach(k => { if (s[k] && here[k] !== s[k]) { here[k] = s[k]; ch = true; } }); if (ch) upd++; return; }
+      if (here) { let ch = false; ['grade'].forEach(k => { if (s[k] && here[k] !== s[k]) { here[k] = s[k]; ch = true; } }); if (ch) upd++; return; }
       const other = S.roster.students.find(x => x.name === s.name);
-      if (other) { S.hw.items.forEach(i => { if (i.cls === other.cls && i.name === other.name) i.cls = cls.id; }); other.cls = cls.id; ['school', 'grade', 'phone'].forEach(k => { if (s[k]) other[k] = s[k]; }); mv++; return; }
-      S.roster.students.push({ id: uid('s'), name: s.name, cls: cls.id, clinic: '', memo: '', school: s.school, grade: s.grade, gy: s.grade ? acYear(todayStr()) : undefined, phone: s.phone }); add++;
+      if (other) { S.hw.items.forEach(i => { if (i.cls === other.cls && i.name === other.name) i.cls = cls.id; }); other.cls = cls.id; ['grade'].forEach(k => { if (s[k]) other[k] = s[k]; }); mv++; return; }
+      S.roster.students.push({ id: uid('s'), name: s.name, cls: cls.id, clinic: '', memo: '', grade: s.grade, gy: s.grade ? acYear(todayStr()) : undefined }); add++;
     });
     if (im.delMissing) { const gone = studentsOf(cls.id).filter(x => !r.students.some(s => s.name === x.name)); gone.forEach(g => { S.roster.students = S.roster.students.filter(x => x.id !== g.id); del++; }); }
   });
@@ -5470,7 +5479,7 @@ function koMatch(hay, q) {
 }
 function stuMatch(s, q) {
   if (!String(q || '').trim()) return true;
-  return koMatch([s.name, s.school, gradeTxt(s), s.phone, s.memo, s.clinic ? s.clinic + '타임' : '', clsName(s.cls)].join(' '), q);
+  return koMatch([s.name, gradeTxt(s), s.memo, s.clinic ? s.clinic + '타임' : '', clsName(s.cls)].join(' '), q);
 }
 function stuListBody() {
   const f = S.ui.stuCls || 'all'; const q = S.ui.stuQ || '';
@@ -5769,7 +5778,7 @@ R.stuDetail = pid => {
   const noted = pts.filter(p => p.ann).sort((a, b) => (b.d || '').localeCompare(a.d || '') || b.n - a.n);
   const annHtml = p => `<div class="note-i"><div class="small muted">${p.d ? mdw(p.d) + ' · ' : ''}${cn(p.c)} ${p.n}회${p.g ? ' · 과제 ' + esc(gradeText({ g: p.g.g, gr: p.g.reason })) : ''}</div><div style="white-space:pre-wrap">${esc(p.ann)}</div></div>`;
   const gchips = pts.filter(p => p.g).slice(-12).map(p => `<span class="pill${p.g.g === 'A+' || p.g.g === 'A' ? ' good' : (p.g.g === 'C' || p.g.g === 'D' ? ' bad' : ' warn')}" title="${cn(p.c)} ${p.n}회${p.g.reason ? ' ' + esc(p.g.reason) : ''}">${p.n}회 ${esc(p.g.g)}</span>`).join(' ');
-  const TABS = [['hw', '과제·클리닉', () => `  <section class="card stack"><div class="row"><h3>과제 · 클리닉 현황</h3>${s.clinic ? `<span class="pill">클리닉 ${esc(s.clinic)}타임</span>` : ''}${schoolOf(s) ? `<span class="pill">${esc(schoolOf(s))}</span>` : ''}${s.phone ? `<span class="small muted">연락처 ${esc(s.phone)}</span>` : ''}</div>
+  const TABS = [['hw', '과제·클리닉', () => `  <section class="card stack"><div class="row"><h3>과제 · 클리닉 현황</h3>${s.clinic ? `<span class="pill">클리닉 ${esc(s.clinic)}타임</span>` : ''}${schoolOf(s) ? `<span class="pill">${esc(schoolOf(s))}</span>` : ''}</div>
     <div class="grid2"><div class="stack"><b class="small">과제 · 숙제 상황</b><div class="chips">${gchips || '<span class="muted small">과제완성도 기록이 없어요.</span>'}</div>${stuHwHtml(s)}</div>
       <div class="stack"><b class="small">클리닉</b>${stuClHtml(s, clc)}</div></div></section>`], ['cns', '상담 이력', () => stuCnsCard(s)], ['kind', '테스트 성취도', () => stuKindCard(s)], ['trend', '성적 추이', () => trendHtml(s, byC, finRows)], ['sum', '안내멘트 요약', () => `  <section class="card stack"><div class="card-h" style="margin:0"><h3>안내멘트 요약</h3><span class="sub">${noted.length}건의 안내멘트</span></div>
     <div class="field"><label for="sum-t">상담용 요약 (직접 고칠 수 있어요)</label><textarea id="sum-t" rows="6" data-ch="stu-sum" data-id="${s.id}" placeholder="[요약 만들기]를 누르면 기록을 바탕으로 정리해요">${esc(s.sumText || '')}</textarea></div>
@@ -6995,7 +7004,7 @@ function ntPrevHtml(P) {
   return `<div class="stack" style="gap:8px">${head}
     <div class="row" style="gap:6px;flex-wrap:wrap"><span class="pill good">연결된 학생 ${P.linked.length}명</span>${P.linked.some(x => x.byName) ? `<span class="pill acc">그중 이름으로 연결 ${P.linked.filter(x => x.byName).length}명</span>` : ''}${P.unlinked.length ? `<span class="pill bad">연결 안 된 학생 ${P.unlinked.length}명</span>` : ''}${P.notInFile.length ? `<span class="pill warn">파일에 없는 명단 학생 ${P.notInFile.length}명</span>` : ''}${P.missing.length ? `<span class="pill warn">오답이음 누락 ${P.missing.length}건</span>` : ''}</div>
     ${P.linked.some(x => x.byName) ? `<div class="banner small"><b>이름으로 연결</b> — 고유번호가 달라서 이름(같은 이름이 한 명뿐) 또는 직접 선택으로 연결했어요: ${P.linked.filter(x => x.byName).map(x => esc(x.s.name)).join(', ')}. 반영하면 이 학생들의 고유번호를 기억해 두고, 다음부터는 바로 연결돼요. 동명이인이면 [취소]하고 확인해 주세요.</div>` : ''}
-    ${P.unlinked.length ? `<div class="banner bad small"><b>연결 안 된 학생</b> — 점수가 반영되지 않아요. 아래에서 업무관리 명단의 학생을 골라 직접 연결할 수 있어요 (반영하면 번호를 기억해 다음부터는 자동 연결돼요).<div class="stack" style="gap:6px;margin-top:6px">${P.unlinked.map(x => { const used = new Set(P.linked.map(l => l.s.id)); const opts = studentsOf(P.cls.id).filter(s => !used.has(s.id)); return `<div class="row" style="gap:8px;flex-wrap:wrap"><span>${esc(x.st.name || '?')} <span class="muted">(${esc(x.st.studentId || '')})</span></span><span>→</span><select style="width:auto" aria-label="${esc(x.st.name || '')} 연결할 명단 학생" data-ch="nt-man" data-f="${esc(P.fname)}" data-id="${esc(x.st.studentId || '')}"><option value="">연결 안 함</option>${opts.map(s => `<option value="${esc(s.id)}">${esc(s.name)}${s.school ? ' · ' + esc(s.school) : ''}${s.phone ? ' · 전화 …' + esc(String(s.phone).replace(/\D/g, '').slice(-4)) : ''}${s.name === x.st.name ? ' (같은 이름)' : ''}</option>`).join('')}</select></div>`; }).join('')}</div></div>` : ''}
+    ${P.unlinked.length ? `<div class="banner bad small"><b>연결 안 된 학생</b> — 점수가 반영되지 않아요. 아래에서 업무관리 명단의 학생을 골라 직접 연결할 수 있어요 (반영하면 번호를 기억해 다음부터는 자동 연결돼요).<div class="stack" style="gap:6px;margin-top:6px">${P.unlinked.map(x => { const used = new Set(P.linked.map(l => l.s.id)); const opts = studentsOf(P.cls.id).filter(s => !used.has(s.id)); return `<div class="row" style="gap:8px;flex-wrap:wrap"><span>${esc(x.st.name || '?')} <span class="muted">(${esc(x.st.studentId || '')})</span></span><span>→</span><select style="width:auto" aria-label="${esc(x.st.name || '')} 연결할 명단 학생" data-ch="nt-man" data-f="${esc(P.fname)}" data-id="${esc(x.st.studentId || '')}"><option value="">연결 안 함</option>${opts.map(s => `<option value="${esc(s.id)}">${esc(s.name)}${s.name === x.st.name ? ' (같은 이름)' : ''}</option>`).join('')}</select></div>`; }).join('')}</div></div>` : ''}
     ${P.notInFile.length ? `<div class="banner small"><b>파일에 없는 명단 학생</b> — ${esc(P.cls.name)} 명단에는 있지만 분석 파일에 없어요(결석·미응시이거나 연결 누락): ${P.notInFile.map(s => esc(s.name)).join(', ')}</div>` : ''}
     ${P.missing.length ? `<div class="banner small"><b>오답이음이 알려준 누락</b> — ${P.missing.map(m => esc(typeof m === 'string' ? m : JSON.stringify(m))).join(' · ')}</div>` : ''}
     ${P.warn.length ? `<div class="banner small">${P.warn.map(esc).join('<br>')}</div>` : ''}
@@ -7304,9 +7313,25 @@ const rptRandId = () => 'r' + Array.from(crypto.getRandomValues(new Uint8Array(8
 const rplToken = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'[b % 64]).join('');
 const rplBase = () => rptCfg().STUDENT_URL || new URL('student.html', location.href).href.split('#')[0].split('?')[0];
 const rplUrl = t => rplBase() + '#t=' + t;
+/* 전화번호 숫자로 된 리포트 ID를 임의 ID로 바꾼 뒤(supabase/update-7.sql), 학생 명단의 ID도 같이 바꿔요 */
+async function rptLidFix() {
+  try {
+    const r = await RPT.sb.from('lid_map').select('old_code,new_code'); if (r.error) return 0;
+    const map = {}; (r.data || []).forEach(x => { map[x.old_code] = x.new_code; });
+    const phoneLike = v => /^[0-9]{9,15}$/.test(v || '');
+    const used = new Set(S.roster.students.concat(S.roster.gone || []).map(s => s.lid).filter(Boolean)); let n = 0;
+    S.roster.students.concat(S.roster.gone || []).forEach(s => {
+      if (!s.lid || !phoneLike(s.lid)) return;
+      if (map[s.lid]) { s.lid = map[s.lid]; n++; }
+      else if (!RPL.rows[s.lid]) { let id; do { id = rptRandId(); } while (used.has(id)); used.add(id); s.lid = id; n++; }
+    });
+    if (n) { commit('roster', `리포트 ID ${n}명 전화번호 → 임의 ID`); RPT.srvKey = null; RPL.sig = ''; await saveAll(true); toast(`리포트 ID ${n}명을 전화번호 대신 임의 ID로 바꿨어요`); }
+    return n;
+  } catch (e) { return 0; }
+}
 async function rplLoad(force) {
   if (!RPT.user || !RPT.isTeacher || !RPT.sb || RPL.busy) return; if (RPL.loaded && !force) return; RPL.busy = true;
-  try { const r = await RPT.sb.from('report_links').select('student_code,token,pin_set_at,consent_ver,consented_at,fails,locked_until,created_at'); if (r.error) throw new Error(r.error.message); RPL.rows = {}; (r.data || []).forEach(x => { RPL.rows[x.student_code] = x; }); RPL.err = ''; rplSync(); }
+  try { const r = await RPT.sb.from('report_links').select('student_code,token,pin_set_at,consent_ver,consented_at,fails,locked_until,created_at'); if (r.error) throw new Error(r.error.message); RPL.rows = {}; (r.data || []).forEach(x => { RPL.rows[x.student_code] = x; }); RPL.err = ''; await rptLidFix(); rplSync(); }
   catch (e) { RPL.err = (e && e.message) || String(e); }
   RPL.loaded = true; RPL.busy = false; if (S.ui.tab === 'rpt') render();
 }
