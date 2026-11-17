@@ -6065,29 +6065,29 @@ function campCourse() {
   const coming = []; states.forEach(s => { if (s.c === c && s.st === 'run') return; const hit = s.ks.map(k => tl(k).find(e => e.c === c && e.n === 1 && e.d > d)).filter(Boolean); if (hit.length) coming.push({ s, ds: hit.map(e => e.d) }); });
   coming.sort((a, b) => [...a.ds].sort()[0].localeCompare([...b.ds].sort()[0]));
   const all = !!S.ui.campAllRows;
+  const thru = !!S.ui.campThru;
   const tbl = s => {
     const ks = s.g.ks.filter(k => kMatch(k, d) && tl(k).some(e => e.c === c));
     const from = all ? 1 : Math.max(1, s.nmin - 1);
-    const rows = []; for (let n = from; n <= len; n++) rows.push(n);
-    return `<div class="tbl-wrap"><table class="ctbl"><thead><tr><th>회차</th><th>구분</th>${ks.map(k => `<th>${esc(kLab(k, d))}</th>`).join('')}<th>단원</th></tr></thead><tbody>${rows.map(n => {
-      const pr = planRow(c, n); const es = ks.map(k => tl(k).find(e => e.c === c && e.n === n));
+    const body = (cc, f) => { const L = courseLen(cc); const out = []; for (let n = f; n <= L; n++) out.push(n); return out.map(n => {
+      const pr = planRow(cc, n); const es = ks.map(k => tl(k).find(e => e.c === cc && e.n === n));
       const past = es.every(e => !e || e.d < d); const now = es.some(e => e && e.d === d);
-      return `<tr class="${past ? 'past' : ''}${now ? ' now' : ''}${pr && pr.fin ? ' finr' : ''}"><td>${n}회</td><td>${pr ? esc(pr.blk) + (pr.fin ? ' <span class="pill warn">총괄</span>' : '') : ''}</td>${es.map(e => `<td class="mono">${e ? mdw(e.d) : '-'}</td>`).join('')}<td>${esc(pr ? pr.unit : '')}</td></tr>`;
-    }).join('')}${(() => {
-      const nc = nextCourse(c);
-      if (nc) {
-        const es = ks.map(k => tl(k).find(e => e.c === nc && e.n === 1)); const p1 = planRow(nc, 1);
-        return `<tr class="nextr"${ccC(nc)}><td>다음</td><td><b>${cn(nc)} 개강</b></td>${es.map(e => `<td class="mono"><b>${e ? mdw(e.d) : '미정'}</b></td>`).join('')}<td>${p1 ? '1회 ' + esc(p1.unit) : ''}</td></tr>`;
-      }
-      const es = ks.map(k => { const t = tl(k); const e = t[t.length - 1]; return e && isLast(e) ? e : null; });
+      return `<tr class="${past ? 'past' : ''}${now ? ' now' : ''}${pr && pr.fin ? ' finr' : ''}"${thru && cc !== c ? ccC(cc) : ''}><td>${n}회</td><td>${pr ? esc(pr.blk) + (pr.fin ? ' <span class="pill warn">총괄</span>' : '') : ''}</td>${es.map(e => `<td class="mono">${e ? mdw(e.d) : '-'}</td>`).join('')}<td>${esc(pr ? pr.unit : '')}</td></tr>`;
+    }).join(''); };
+    const nxt = nc => { const es = ks.map(k => tl(k).find(e => e.c === nc && e.n === 1)); const p1 = planRow(nc, 1);
+      return `<tr class="nextr"${ccC(nc)}><td>다음</td><td><b>${cn(nc)} 개강</b></td>${es.map(e => `<td class="mono"><b>${e ? mdw(e.d) : '미정'}</b></td>`).join('')}<td>${p1 ? '1회 ' + esc(p1.unit) : ''}</td></tr>`; };
+    const endr = () => { const es = ks.map(k => { const t = tl(k); const e = t[t.length - 1]; return e && isLast(e) ? e : null; });
       const ev = S.campus.events.filter(x => x.grp && x.grp === s.g.id && /중등/.test(x.text)).map(x => x.text).join(' · ');
-      return `<tr class="nextr endr"><td>다음</td><td><b>중등 진학</b></td>${es.map(e => `<td class="mono"><b>${e ? mdw(e.d) + ' 마지막' : '-'}</b></td>`).join('')}<td>${esc(ev)}</td></tr>`;
-    })()}</tbody></table></div>`;
+      return `<tr class="nextr endr"><td>다음</td><td><b>중등 진학</b></td>${es.map(e => `<td class="mono"><b>${e ? mdw(e.d) + ' 마지막' : '-'}</b></td>`).join('')}<td>${esc(ev)}</td></tr>`; };
+    let html = body(c, from);
+    if (thru) { for (let cc = nextCourse(c); cc; cc = nextCourse(cc)) html += nxt(cc) + body(cc, 1); html += endr(); }
+    else html += nextCourse(c) ? nxt(nextCourse(c)) : endr();
+    return `<div class="tbl-wrap"><table class="ctbl"><thead><tr><th>회차</th><th>구분</th>${ks.map(k => `<th>${esc(kLab(k, d))}</th>`).join('')}<th>단원</th></tr></thead><tbody>${html}</tbody></table></div>`;
   };
   return `
   <div class="seg tabx" role="group" aria-label="과정">${COURSES.map(x => `<button data-act="k-course" data-c="${x}"${ccC(x)} aria-pressed="${x === c}">${cn(x)} <span class="small">${cnt(x)}</span></button>`).join('')}</div>
   <div class="row" style="justify-content:space-between"><div class="small muted">${cn(c)} 전체 ${len}회 · 지금 ${here.length}그룹이 듣고 있어요. 같은 회차를 반별로 나란히 볼 수 있어요.</div>
-    <label class="small"><input type="checkbox" data-ch="k-allrows" ${all ? 'checked' : ''}> 지난 회차도 보기</label></div>
+    <span class="row" style="gap:14px"><label class="small"><input type="checkbox" data-ch="k-thru" ${thru ? 'checked' : ''}> 다음 과정부터 졸업까지 쭉 보기</label><label class="small"><input type="checkbox" data-ch="k-allrows" ${all ? 'checked' : ''}> 지난 회차도 보기</label></span></div>
   ${here.map(s => `<section class="card stack${S.ui.campGrp === s.g.id ? ' focus' : ''}"${ccC(c)} id="grp-${esc(s.g.id)}">
     <div class="card-h" style="margin:0"><div class="row"><input type="text" class="gname" aria-label="그룹 이름" data-ch="k-gname" data-g="${esc(s.g.id)}" value="${esc(grpName(s.g))}"><span class="mono">${s.nmin === s.nmax ? s.nmax : s.nmin + '~' + s.nmax} / ${len}회</span></div>
       <div class="row"><span class="sub">${s.no ? `다음 ${cn(s.no.c)} ${dRange(s.no.ds)}` : s.ne ? `중등 진학 ${dRange(s.ne.ds)}` : ''}</span>
@@ -6317,6 +6317,7 @@ ACT['k-view'] = b => { S.ui.campV = b.dataset.v === 'sched' ? (S.ui.campSub || '
 CH['k-tf'] = el => { S.ui.campT = el.value; render(); };
 ACT['k-course'] = b => { S.ui.campV = 'course'; S.ui.campCourse = b.dataset.c; S.ui.campGrp = b.dataset.g || null; S.ui.campCls = null; render(); const el = b.dataset.g && document.getElementById('grp-' + b.dataset.g); if (el) el.scrollIntoView({ block: 'start' }); else window.scrollTo(0, 0); };
 CH['k-allrows'] = el => { S.ui.campAllRows = el.checked; render(); };
+CH['k-thru'] = el => { S.ui.campThru = el.checked; render(); };
 CH['k-gname'] = el => { const v = el.value.trim(); const g = el.dataset.g; if (!v) { delete S.campus.grpNames[g]; } else S.campus.grpNames[g] = v; commit('campus', `그룹 이름: ${v || '자동'}`); render(); };
 ACT['k-week'] = b => setDate(addDays(S.ui.date, +b.dataset.n));
 ACT['k-goto'] = b => setDate(b.dataset.d);
