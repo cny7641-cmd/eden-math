@@ -1566,6 +1566,7 @@ function markIdx() {
 function render() {
   if (!S.loaded) return;
   try { bgSync(); } catch (e) { console.warn(e); }
+  try { tlSync(); } catch (e) { console.warn(e); }
   try { holSync(); } catch (e) { console.warn(e); }
   try { piiSync(); } catch (e) { console.warn(e); }
   const root = $('#app');
@@ -5944,6 +5945,26 @@ function grpName(g) {
   const st = g.ks.map(k => tl(k)[0]).filter(Boolean).sort((a, b) => a.d.localeCompare(b.d))[0];
   if (!st) return '이름 없는 그룹'; const [y, m] = st.d.split('-'); return `${y.slice(2)}년 ${+m}월 ${st.c} 개강반`;
 }
+/* 카드 제목 두 줄: ① 그룹이 처음 시작한 과정과 개강 월 ② 중등 진학(마지막 수업) 월 */
+function grpFirst(g) { return g.ks.map(k => ({ k, e: tl(k)[0] })).filter(x => x.e).sort((a, b) => a.e.d.localeCompare(b.e.d))[0] || null; }
+function grpTitle(g) {
+  const custom = (S.campus.grpNames || {})[g.id]; const f = grpFirst(g);
+  let a = custom || '이름 없는 그룹';
+  if (!custom && f) { const [y, m] = f.e.d.split('-'); a = `${y.slice(2)}년 ${+m}월 ${f.e.c} 개강반`; }
+  const ends = g.ks.map(k => { const t = tl(k); return t[t.length - 1]; }).filter(e => e && isLast(e)).map(e => e.d).sort();
+  let b = '중등진학반 (날짜 미정)'; if (ends.length) { const [y, m] = ends[0].split('-'); b = `${y.slice(2)}년 ${+m}월 중등진학반`; }
+  return { a, b };
+}
+/* 대상 학년: 1-1 개강이 3·6·9월이면 초4·5, 12월이면 초4. 학년은 3월에 올라가요 */
+function grpGrade(g, d) {
+  const f = grpFirst(g); if (!f) return '';
+  let st = f.e.d;
+  if (!(f.e.c === '1-1' && f.e.n === 1)) { const per = classDows(f.k).length || 2; let w = f.e.n - 1; for (const c of COURSES) { if (c === f.e.c) break; w += courseLen(c); } st = addDays(f.e.d, -Math.round(w / per) * 7); }
+  const sy = x => { const [y, m] = x.split('-').map(Number); return m >= 3 ? y : y - 1; };
+  const base = +st.split('-')[1] === 12 ? [4] : [4, 5]; const yrs = Math.max(0, sy(d < st ? st : d) - sy(st));
+  return [...new Set(base.map(x => Math.min(6, x + yrs)))].join(',') + '학년';
+}
+const grpTitleHtml = (g, c) => { const t = grpTitle(g); return `<button class="gc-n" data-act="k-course" data-c="${c}" data-g="${esc(g.id)}">${esc(t.a)}<span style="display:block;font-weight:600;font-size:12px;color:var(--muted);text-decoration:none">${esc(t.b)}</span></button>`; };
 const dRange = ds => { const u = [...new Set(ds)].sort(); if (!u.length) return ''; return u.length === 1 ? mdw(u[0]) : `${md(u[0])}~${md(u[u.length - 1])}`; };
 /* 그룹의 지금 상태: 운영 중인 반, 대표 과정, 회차 범위, 다음 고비 */
 function grpState(g, d) {
@@ -6053,11 +6074,12 @@ function grpCard(s, d) {
   const len = courseLen(s.c); const pct = len ? Math.round(s.nmax / len * 100) : 0;
   const nTxt = s.nmin === s.nmax ? `${s.nmax}` : `${s.nmin}~${s.nmax}`;
   const lines = [];
-  if (s.nf) lines.push(`<div class="gl"><span class="tg fin">${esc(s.nf.blk)}총괄</span> ${s.nf.c !== s.c ? cn(s.nf.c) + ' ' : ''}${s.nf.n}회 · ${dRange(s.nf.ds)}</div>`);
-  if (s.no) lines.push(`<div class="gl"><span class="tg open">다음 과정 시작</span> ${cn(s.no.c)} 1회 · ${dRangeY(s.no.ds)}</div>`);
-  if (s.ne) lines.push(`<div class="gl"><span class="tg end">중등 진학</span> 마지막 수업 ${dRange(s.ne.ds)}</div>`);
+  if (s.nf) lines.push(`<div class="gl"><span class="tg fin">${esc(s.nf.blk)}총괄</span><div>${s.nf.c !== s.c ? cn(s.nf.c) + ' ' : ''}${s.nf.n}회 · ${dRange(s.nf.ds)}</div></div>`);
+  if (s.no) lines.push(`<div class="gl"><span class="tg open">다음 과정 시작</span><div>${cn(s.no.c)} 1회</div><div>${dRangeY(s.no.ds)}</div></div>`);
+  if (s.ne) lines.push(`<div class="gl"><span class="tg end">중등 진학</span><div>마지막 수업 ${dRange(s.ne.ds)}</div></div>`);
+  lines.push(`<div class="gl"><span class="tg" style="background:var(--line);color:var(--ink)">대상 학년</span><div>${grpGrade(s.g, d)}</div></div>`);
   return `<article class="gcard${s.hot ? ' hot' : ''}"${ccC(s.c)}>
-    <div class="gc-h"><button class="gc-n" data-act="k-course" data-c="${s.c}" data-g="${esc(s.g.id)}">${esc(grpName(s.g))}</button>${s.hot ? '<span class="tg fin">2주 안</span>' : ''}</div>
+    <div class="gc-h" style="flex-direction:column;align-items:flex-start;gap:4px">${grpTitleHtml(s.g, s.c)}${s.hot ? '<span class="tg fin">2주 안</span>' : ''}</div>
     <div class="gc-p"><b class="mono">${nTxt}</b><span class="muted small"> / ${len}회</span><span class="bar" role="img" aria-label="${s.nmax}/${len}회 진행"><i style="width:${pct}%"></i></span></div>
     <div class="gc-ks">${s.rows.sort((a, b) => b.e.n - a.e.n).map(r => `<button class="gc-k" data-act="k-open" data-k="${r.k.id}"><span><b>${esc(shortT(tchOn(r.k, d)))}</b> ${esc(r.k.name)}</span><span class="mono small">${r.e.c !== s.c ? r.e.c + ' ' : ''}${r.e.n}회</span></button>`).join('')}</div>
     ${lines.length ? `<div class="gc-m">${lines.join('')}</div>` : ''}</article>`;
@@ -6072,7 +6094,7 @@ function campBoard() {
   <div class="board">${COURSES.map(c => { const list = run.filter(s => s.c === c); const nk = list.reduce((a, s) => a + s.rows.length, 0); return `<section class="bcol"${ccC(c)}>
     <button class="bcol-h" data-act="k-course" data-c="${c}"><span>${cn(c)}</span><span class="small">${list.length ? `${list.length}그룹 · ${nk}개 반` : '비어 있음'}</span></button>
     ${list.sort((a, b) => b.nmax - a.nmax).map(s => grpCard(s, d)).join('') || '<div class="bempty">지금 이 과정을 듣는 반이 없어요</div>'}</section>`; }).join('')}</div>
-  ${soon.length ? `<div class="soonrow"><div class="soonrow-h"><b>개강 예정</b><span class="small muted">${soon.length}그룹 · 아직 시작 전인 반이에요</span></div><div class="soonrow-c">${soon.map(s => { const f = s.soon.map(k => tl(k)[0]); return `<article class="gcard soon-card"${ccC(f[0].c)}><div class="gc-h"><button class="gc-n" data-act="k-course" data-c="${f[0].c}" data-g="${esc(s.g.id)}">${esc(grpName(s.g))}</button><span class="tg open">${cn(f[0].c)}</span></div><div class="gc-p"><span class="small muted">개강</span> <b class="mono">${dRangeY(f.map(e => e.d))}</b></div><div class="gc-ks">${s.soon.map(k => `<button class="gc-k" data-act="k-open" data-k="${k.id}"><span><b>${esc(shortT(tchOn(k, f[0].d)))}</b> ${esc(k.name)}</span><span class="mono small">예정</span></button>`).join('')}</div><button class="btn sm" data-act="k-addto" data-g="${esc(s.g.id)}" data-c="${f[0].c}">+ 반 추가</button></article>`; }).join('')}</div></div>` : ''}
+  ${soon.length ? `<div class="soonrow"><div class="soonrow-h"><b>개강 예정</b><span class="small muted">${soon.length}그룹 · 아직 시작 전인 반이에요</span></div><div class="soonrow-c">${soon.map(s => { const f = s.soon.map(k => tl(k)[0]); return `<article class="gcard soon-card"${ccC(f[0].c)}><div class="gc-h" style="align-items:flex-start">${grpTitleHtml(s.g, f[0].c)}<span class="tg open">${cn(f[0].c)}</span></div><div class="gc-p"><span class="small muted">개강</span> <b class="mono">${dRangeY(f.map(e => e.d))}</b></div><div class="gc-ks">${s.soon.map(k => `<button class="gc-k" data-act="k-open" data-k="${k.id}"><span><b>${esc(shortT(tchOn(k, f[0].d)))}</b> ${esc(k.name)}</span><span class="mono small">예정</span></button>`).join('')}</div><div class="gc-m"><div class="gl"><span class="tg" style="background:var(--line);color:var(--ink)">대상 학년</span><div>${grpGrade(s.g, f.map(e => e.d).sort()[0])}</div></div></div><button class="btn sm" data-act="k-addto" data-g="${esc(s.g.id)}" data-c="${f[0].c}">+ 반 추가</button></article>`; }).join('')}</div></div>` : ''}
   ${done ? `<div class="small muted">종강한 그룹 ${done}개는 반 목록의 '종강'에서 볼 수 있어요.</div>` : ''}`;
 }
 
@@ -6290,6 +6312,20 @@ function holGapBar() { const g = holGaps(); if (!g.length) return '';
 function holFixApply(g) {
   g.forEach(x => { const k = x.k; if (!k.hol.includes(x.h.d)) k.hol.push(x.h.d); if (!x.h.ks.includes(k.id)) x.h.ks.push(k.id); });
   [...new Set(g.map(x => x.k.id))].forEach(id => { const k = kById(id); const ds = g.filter(x => x.k.id === id).map(x => x.h.d).sort(); regenFrom(k, ds[0]); }); }
+/* 일정이 중간까지만 있는 반은 마지막 수업(3-2 마지막 회차)까지 날짜를 자동으로 이어 계산해요. 휴강일은 건너뛰고, 전체 휴강 기록은 바로 뒤 holSync가 맞춰요 */
+let _tlSyncing = false;
+function tlSync() { if (_tlSyncing || !S.campus || !S.campus.classes) return; _tlSyncing = true;
+  try { let n = 0;
+    S.campus.classes.forEach(k => {
+      const t = k.tl; if (!t || !t.length) return; const last = t[t.length - 1];
+      if (last[0] === '3-2' && last[1] >= courseLen('3-2')) return;
+      const dows = classDows(k); if (!dows.length) return;
+      let c = last[0], nn = last[1] + 1; if (nn > courseLen(c)) { c = nextCourse(c); nn = 1; } if (!c) return;
+      const add = genTimeline(c, nn, addDays(last[2], 1), dows, k.hol || []); if (!add.length) return;
+      k.tl = t.concat(add); n++;
+    });
+    if (!n) return; autoCommit('campus', `수업 일정 자동 이어 붙이기 ${n}개 반`); setTimeout(() => toast(`일정이 중간에 끊긴 ${n}개 반의 날짜를 졸업(3-2 마지막 수업)까지 자동으로 채웠어요`), 300); }
+  catch (e) { console.warn(e); } finally { _tlSyncing = false; } }
 let _holSyncing = false;
 /* 휴강 기록과 각 반 일정이 어긋나면 화면을 그리기 전에 자동으로 맞추고 저장해요 */
 function holSync() { if (_holSyncing || !S.campus || !S.campus.classes) return; _holSyncing = true;
