@@ -2043,6 +2043,18 @@ function helloLine() {
   const pool = T.concat(T, W, W, M, C); let pick; do { pick = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && HELLO && pick === HELLO.text);
   HELLO = { key, text: pick }; return pick;
 }
+/* 홈: 오답이음 연결 카드 — 마지막 전송 상태, 지금 보내기, 명단 파일 받기, 받은 분석 확인 */
+function oeCard() {
+  const on = !!rptCfg().SUPABASE_URL; const n = on ? inbNewCount() : 0;
+  const t = WN.last ? new Date(WN.last) : null; const p = v => String(v).padStart(2, '0');
+  const tt = t ? `${t.getMonth() + 1}/${t.getDate()} ${p(t.getHours())}:${p(t.getMinutes())}` : '';
+  const st = !on ? '<span class="muted">서버 연결이 없어서 자동 전송은 쓸 수 없어요 (파일로 받기만 가능)</span>'
+    : WN.err ? `<span style="color:var(--bad)">⚠ 마지막 전송 실패 · ${esc(WN.err.slice(0, 60))}</span>`
+    : WN.busy ? '<span class="muted">보내는 중…</span>'
+    : tt ? `마지막 전송 <b>${tt}</b>` : '<span class="muted">이 기기에서 보낸 기록이 아직 없어요 (저장할 때마다 자동으로 올라가요)</span>';
+  const inb = !on ? '' : n ? ` · <b style="color:var(--accent)">받은 분석 대기 ${n}건</b>` : ' · 받은 분석 없음';
+  return `<section class="card" id="home-oe"><div class="row" style="gap:10px;flex-wrap:wrap;align-items:center"><b>오답이음 연결</b><span class="small grow" style="min-width:200px">${st}${inb}</span>${on ? '<button class="btn sm" data-act="wn-sync" title="명단·반 일정·강의계획서·클리닉 범위를 오답이음으로 지금 바로 보내요">지금 보내기</button>' : ''}<button class="btn sm" data-act="ros-export-wn" title="학생·반 명단을 파일로 저장하면 PC의 오답파일 프로그램에 자동 반영돼요">명단 파일 받기</button>${on ? `<button class="btn sm${n ? ' pri' : ''}" data-act="inb-go" title="오답이음이 보낸 분석을 미리 보고 반영해요">받은 분석 확인${n ? ' (' + n + ')' : ''}</button>` : ''}</div></section>`;
+}
 R.home = () => {
   const date = S.ui.date; const today = classToday(date);
   const open = openTasksUpTo(date).filter(t => !t.ghost && !taskDone(t) && !CAL_HIDE_HOME(t)).sort((a, b) => (a.date === date ? 0 : 1) - (b.date === date ? 0 : 1) || a.date.localeCompare(b.date) || String(a.time || '').localeCompare(String(b.time || '')));
@@ -2058,13 +2070,13 @@ R.home = () => {
   const clsRow = ({ cls, e }) => { const rec = getRec(cls, e), pr = planRow(e.c, e.n); const st = rec && rec.sent ? '<span class="pill good">문자 발송</span>' : rec && rec.written ? '<span class="pill acc">작성 완료</span>' : '<span class="pill">문자 전</span>';
     return `<button type="button" class="hrow btn-row" data-act="open-sess" data-cls="${cls.id}" data-sk="${sessKey(cls, e)}">${cchip(cls.id)}<b>${e.n}회</b>${pr && pr.fin ? '<span class="pill warn">총괄</span>' : ''}<span class="grow small muted">${cn(e.c)}${pr && pr.unit ? ' · ' + esc(pr.unit) : ''}</span>${st}</button>`; };
   return `<div class="home">
-  ${(() => { try { return inboxBanner(); } catch (e) { return ''; } })()}
   <section class="card stack" id="home-todo"><div class="card-h" style="margin:0"><h2 style="font-size:19px;margin:0">오늘 할 일 ${todayOpen}건${late ? ` <span class="pill warn" style="font-size:13px">기한 지난 일 ${late}건</span>` : ''}</h2><span class="sub">${md(date)} ${DOW[dowOf(date)]}요일 · 오늘 수업 ${today.length}개 · 문자 대기 ${unsent}건</span></div>
     <div class="small muted">${esc(hello)}</div>
     ${top.length ? top.map(homeTodoRow).join('') : '<div class="empty">처리할 업무가 없어요 🎉</div>'}
     ${open.length > top.length ? `<div class="small muted">그 밖에 ${open.length - top.length}건 · <a href="#" data-act="tab" data-k="report">업무보고에서 전체 보기</a></div>` : ''}</section>
   <div class="htiles">${hTile('session', '✉️', '문자 미발송', unsent, '어제까지 · 최근 2주', 4)}${hTile('makeup', '🔁', '보강', bg, '오늘 처리할 학생', 3)}${clHomeTile()}${hTile('student', '📈', '상담 알림', cns, '지연·임박', 5)}</div>
   ${campDash(date)}
+  ${(() => { try { return oeCard(); } catch (e) { return ''; } })()}
   ${memoCard()}
   <section class="card"><div class="card-h"><h3>업무 달력</h3>${(() => { const ym = calYmOf(date); return `<button class="btn sm" data-act="cal-mon" data-n="-1" aria-label="이전 달">‹</button><b>${ym.slice(0, 4)}년 ${+ym.slice(5, 7)}월</b><button class="btn sm" data-act="cal-mon" data-n="1" aria-label="다음 달">›</button><button class="btn sm" data-act="cal-mon" data-n="0">이번 달</button>`; })()}<span class="sub">업무를 누르면 관련 화면으로 이동해요 (보강→보강, 클리닉→클리닉, 그 외→업무보고)</span><span class="grow"></span></div>
     ${weekCalHtml(date)}${calDayList(date)}</section></div>`;
@@ -3420,7 +3432,8 @@ ACT['ros-export-wn'] = async () => {
 };
 /* ===== 명단·강의계획서를 서버(program_sync 표, key='roster')에 자동으로 올리기: 오답이음이 5분마다 읽어가요 =====
    명단·반 일정·강의계획서·클리닉 범위가 저장될 때마다 4초 뒤 한 번, 위 파일과 똑같은 내용을 올려요 (내용이 그대로면 건너뛰어요) */
-const WN = { t: null, sig: '', busy: false, again: false, last: 0, err: '' };
+const WN_LS = 'eden_wn_last';
+const WN = { t: null, sig: '', busy: false, again: false, last: (() => { try { return +localStorage.getItem(WN_LS) || 0; } catch (e) { return 0; } })(), err: '' };
 function wnSoon() { clearTimeout(WN.t); WN.t = setTimeout(() => { wnSync(false).catch(e => console.warn('오답이음 명단 전송', e)); }, 4000); }
 function wnTouched(name) { if (['cfg', 'roster', 'plan', 'clinic'].includes(name) && rptCfg().SUPABASE_URL) wnSoon(); }
 async function wnSync(manual) {
@@ -3435,13 +3448,13 @@ async function wnSync(manual) {
     if (!manual && sig === WN.sig) return;
     const r = await RPT.sb.from('program_sync').upsert({ key: 'roster', payload: o, source: '업무관리사이트', updated_at: new Date().toISOString() }, { onConflict: 'key' });
     if (r.error) throw new Error(r.error.message);
-    WN.sig = sig; WN.last = Date.now(); WN.err = '';
+    WN.sig = sig; WN.last = Date.now(); WN.err = ''; try { localStorage.setItem(WN_LS, String(WN.last)); } catch (e) { }
     if (manual) toast(`오답이음으로 보냈어요: 학생 ${o.students.length}명 · 반 ${o.classes.length}개. 오답이음이 5분 안에 자동으로 받아요`);
   } catch (e) {
     WN.err = (e && e.message) || String(e);
     if (manual) toast('오답이음으로 보내지 못했어요: ' + WN.err + (/program_sync|relation|does not exist/i.test(WN.err) ? ' (supabase/update-4.sql 을 실행했는지 확인해 주세요)' : ''));
     else console.warn('오답이음 명단 전송 실패', WN.err);
-  } finally { WN.busy = false; if (WN.again) { WN.again = false; wnSoon(); } }
+  } finally { WN.busy = false; if (WN.again) { WN.again = false; wnSoon(); } if (manual && S.ui.tab === 'home') { const y = window.scrollY; render(); window.scrollTo(0, y); } }
 }
 ACT['wn-sync'] = () => wnSync(true);
 R.roster = () => { const rf = S.ui.rosCls === 'past' ? 'past' : liveCls().some(c => c.id === S.ui.rosCls) ? S.ui.rosCls : 'all'; return `
