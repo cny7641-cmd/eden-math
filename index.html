@@ -3032,7 +3032,7 @@ function rangeMsg(rec, s, a, bb) {
   const um = {}; if (me) Object.keys(me.u).forEach(k => { const nm = k.slice(k.indexOf('|') + 1), x = me.u[k]; const o = um[nm] || (um[nm] = { u: nm, w: 0, t: 0 }); o.w += x.w; o.t += x.t; });
   const us = Object.values(um).filter(x => x.t >= 2).map(x => ({ ...x, v: x.w / x.t * 100 })).sort((x, y) => y.v - x.v || y.t - x.t), weak = us.filter(x => x.v >= 30).slice(0, 3);
   L.push('*보완이 필요한 단원');
-  if (weak.length) { weak.forEach((x, i) => L.push(x.u + '(' + x.t + '문항 중 ' + x.w + '문항 오답, 정답률 ' + nf((x.t - x.w) / x.t * 100) + '%)' + (i === weak.length - 1 ? '.' : ','))); L.push('— 개념부터 다시 확인해 주세요. 이 단원을 중심으로 오답을 다시 풀어 보면 좋을 것 같습니다.'); }
+  if (weak.length) { weak.forEach((x, i) => L.push(x.u + '(' + x.t + '문항 중 ' + x.w + '문항 오답, 정답률 ' + nf((x.t - x.w) / x.t * 100) + '%)' + (i === weak.length - 1 ? '.' : ','))); L.push('이 단원을 중심으로 오답을 다시 풀어 보면 좋을 것 같습니다.'); }
   else L.push(us.length ? '오답률이 높은 단원 없이 전반적으로 고르게 이해하고 있습니다.' : '분석할 오답 기록이 아직 없습니다.');
   L.push('');
   const ks = me ? Object.keys(me.k).filter(k => me.k[k].tot >= 3).map(k => { const i = k.indexOf('|'), c = k.slice(0, i), kk = k.slice(i + 1); return { v: me.k[k].ok / me.k[k].tot * 100, l: cn(c) + ' ' + KIND_T[kk] }; }).sort((x, y) => y.v - x.v) : [];
