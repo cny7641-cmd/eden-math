@@ -1910,12 +1910,15 @@ ACT['hw-book-done'] = b => { const k = b.dataset.k, bk = b.dataset.b; let n = 0;
   if (n) { autoCommit('hw', `${k.split('|')[1]} ${bk} 과제 완료`); render(); } };
 ACT['hw-bulk'] = () => { S.ui.hwBulk = !S.ui.hwBulk; S.ui.hwSel = {}; render(); };
 ACT['hw-chip'] = b => { const k = b.dataset.key; const [id, ix] = [k.slice(0, k.lastIndexOf('|')), +k.slice(k.lastIndexOf('|') + 1)]; const it = S.hw.items.find(x => x.id === id); if (!it) return;
-  const part = hwSplitParts(it.range).parts[ix]; if (part == null) return; it.chk = it.chk || {}; const was = !!it.chk[part]; it.chk[part] = was ? false : todayStr(); if (was && it.pz) delete it.pz[part];
+  const sp0 = hwSplitParts(it.range); const part = sp0.parts[ix]; if (part == null) return; it.chk = it.chk || {}; const was = !!it.chk[part];
+  if (!was && (/미제출|결석|보류/.test(part) || (!/미흡/.test(part) && /미제출|결석|보류/.test(stShort(it.status))))) { /* 미제출 칩을 누르면 먼저 '미흡'으로, 한 번 더 누르면 완료 */
+    const v = (part.replace(/s*S*(?:미제출|일부미흡|미흡|결석|보류)S*s*$/, '').trim() + ' 미흡').trim(); const ps = sp0.parts.slice(); ps[ix] = v; const ren = Object.assign({}, it.ren || {}); const fk = Object.keys(ren).find(k => ren[k] === part); ren[fk || part] = v; it.ren = ren; it.range = sp0.head + ps.join(', ');
+    const y1 = window.scrollY; commit('hw', '숙제 미제출 → 미흡: ' + it.name); render(); window.scrollTo(0, y1); return; } it.chk[part] = was ? false : todayStr(); if (was && it.pz) delete it.pz[part];
   const y = window.scrollY; commit('hw', (was ? '숙제 체크 취소: ' : '숙제 체크: ') + it.name + ' ' + part.slice(0, 16)); render(); window.scrollTo(0, y); };
 const hwSelN = () => Object.keys(S.ui.hwSel || {}).length;
-const hwBulkBtn = () => `<span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">${S.ui.hwBulk || hwSelN() ? `<button class="btn sm pri" data-act="hw-sel-do" data-m="done" title="체크한 숙제를 모두 완료 처리">선택 완료${hwSelN() ? ' (' + hwSelN() + ')' : ''}</button><button class="btn sm" data-act="hw-sel-do" data-m="pass" title="체크한 숙제를 모두 패스 처리 (미완료 목록에서 빠지고 성취도 상세에 기록)">선택 패스</button>` : ''}<button class="btn sm${S.ui.hwBulk ? ' pri' : ''}" data-act="hw-bulk" aria-pressed="${!!S.ui.hwBulk}" title="여러 학생의 숙제를 한꺼번에 수정·완료·패스해요">${S.ui.hwBulk ? '✓ 편집 끝' : '✎ 편집'}</button></span>`;
+const hwBulkBtn = () => `<span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">${S.ui.hwBulk || hwSelN() ? `<button class="btn sm pri" data-act="hw-sel-do" data-m="done" title="체크한 숙제를 모두 완료 처리">선택 완료${hwSelN() ? ' (' + hwSelN() + ')' : ''}</button><button class="btn sm" data-act="hw-sel-do" data-m="pass" title="체크한 숙제를 모두 패스 처리 (미완료 목록에서 빠지고 성취도 상세에 기록)">선택 패스</button><button class="btn sm" data-act="hw-sel-st" data-m="미흡" title="체크한 숙제의 상태를 '미흡'으로 바꿔요 (미제출 → 미흡)">→ 미흡</button><button class="btn sm" data-act="hw-sel-st" data-m="미제출" title="체크한 숙제의 상태를 '미제출'로 바꿔요">→ 미제출</button>` : ''}<button class="btn sm${S.ui.hwBulk ? ' pri' : ''}" data-act="hw-bulk" aria-pressed="${!!S.ui.hwBulk}" title="여러 학생의 숙제를 한꺼번에 수정·완료·패스해요">${S.ui.hwBulk ? '✓ 편집 끝' : '✎ 편집'}</button></span>`;
 CH['hw-part-edit'] = el => { const it = S.hw.items.find(x => x.id === el.dataset.id); if (!it) return; const { head, parts } = hwSplitParts(it.range); const i = +el.dataset.i; const old = parts[i]; const v = el.value.trim(); if (!v || v === old) { render(); return; }
-  parts[i] = v; const ren = Object.assign({}, it.ren || {}); const fk = Object.keys(ren).find(k => ren[k] === old); ren[fk || old] = v; it.ren = ren;
+  parts[i] = v; if (it.chk && it.chk[old]) { it.chk[v] = it.chk[old]; delete it.chk[old]; } if (it.pz && it.pz[old]) { it.pz[v] = it.pz[old]; delete it.pz[old]; } const ren = Object.assign({}, it.ren || {}); const fk = Object.keys(ren).find(k => ren[k] === old); ren[fk || old] = v; it.ren = ren;
   it.range = head + parts.join(', '); noAutoCommit('hw', `숙제 내용 수정: ${it.name}`); render(); };
 CH['hw-sel'] = el => { const m = S.ui.hwSel || (S.ui.hwSel = {}); if (el.checked) m[el.dataset.key] = 1; else delete m[el.dataset.key]; };
 CH['hw-sel-all'] = el => { const m = S.ui.hwSel || (S.ui.hwSel = {}); S.hw.items.filter(it => !it.done && hwKeyOf(it.cls, it.name) === el.dataset.k).forEach(it => hwSplitParts(it.range).parts.forEach((x, i) => { if (el.checked) m[it.id + '|' + i] = 1; else delete m[it.id + '|' + i]; })); render(); };
@@ -1926,6 +1929,12 @@ ACT['hw-sel-do'] = b => { const k = b.dataset.k, pass = b.dataset.m === 'pass'; 
     hwMark(it, moved, true, pass); });
   if (!n) { toast('먼저 숙제를 체크해 주세요'); return; }
   S.ui.hwSel = {}; autoCommit('hw', `${k ? k.split('|')[1] + ' ' : ''}과제 ${pass ? '패스' : '완료'}(${n}건)`); render(); toast((pass ? '패스 처리' : '완료 처리') + '하고 저장했어요 · 다음 수업일에 목록에서 사라져요'); };
+ACT['hw-sel-st'] = b => { const to = b.dataset.m, m = S.ui.hwSel || {}; let n = 0;
+  S.hw.items.filter(it => !it.done).forEach(it => { const { head, parts } = hwSplitParts(it.range); let ch = false; const ren = Object.assign({}, it.ren || {});
+    parts.forEach((x, i) => { if (!m[it.id + '|' + i]) return; const v = (x.replace(/s*S*(?:미제출|일부미흡|미흡|결석|보류)S*s*$/, '').trim() + ' ' + to).trim(); if (v === x) return; parts[i] = v; if (it.chk && it.chk[x]) { it.chk[v] = it.chk[x]; delete it.chk[x]; } if (it.pz && it.pz[x]) { it.pz[v] = it.pz[x]; delete it.pz[x]; } const fk = Object.keys(ren).find(k => ren[k] === x); ren[fk || x] = v; ch = true; n++; });
+    if (ch) { it.ren = ren; it.range = head + parts.join(', '); } });
+  if (!n) { toast('먼저 숙제를 체크해 주세요'); return; }
+  S.ui.hwSel = {}; noAutoCommit('hw', `숙제 상태 ${to}로 수정(${n}건)`); render(); toast(`${n}건을 '${to}'로 바꿨어요 · 저장해야 확정돼요`); };
 ACT['hw-add-stu'] = b => { const inp = b.closest('.hw-addrow').querySelector('input'); const range = inp.value.trim(); if (!range) { toast('추가할 숙제 범위를 입력해 주세요'); return; }
   S.hw.items.push({ id: uid('h'), cls: b.dataset.cls, name: b.dataset.name, range, status: '미흡', done: false }); commit('hw', '숙제 추가: ' + b.dataset.name + ' ' + range.slice(0, 18)); render(); toast('숙제를 담았어요. 저장을 눌러야 기록돼요'); };
 function rangeChips(rg, id, noHead) {
@@ -2445,11 +2454,12 @@ function hwFlatTable(groups, showCls) {
   const used = new Set(); groups.forEach(g => { hwChipsOf(g.rows).forEach(c => used.add(c.b)); g.rows.forEach(r => hwPendParts(r).forEach(x => used.add(hwBookOf(x, null)))); });
   const MAIN = ['쎈', '최상위', '에이급']; const colOf = b => MAIN.includes(b) ? b : '기타'; const cols = MAIN.concat([...used].some(b => !MAIN.includes(b)) ? ['기타'] : []); const nc = cols.length + (showCls ? 2 : 1);
   const cls = st => /미제출|결석|보류/.test(st) ? ' n' : /미흡/.test(st) ? ' p' : '';
+  const clsC = c => cls(/미제출|결석|보류|미흡/.test(c.x) ? c.x : c.x + ' ' + (c.st || ''));
   const selOf = () => S.ui.hwSel || (S.ui.hwSel = {});
   const bulk = !!S.ui.hwBulk;
   const chip = (c) => { const p = hwPartSplit(c.x, c.st); const lab = (p.range + (p.status ? ' ' + p.status : '')).trim() || c.x; const key = c.id + '|' + c.i;
-    if (!bulk) { const it0 = S.hw.items.find(x => x.id === c.id); const on = !!(it0 && it0.chk && it0.chk[c.x]); return `<button type="button" class="rchip rsel${cls(c.x + ' ' + (c.st || ''))}${on ? ' on hw-ok' : ''}" data-act="hw-chip" data-key="${esc(key)}" aria-pressed="${on}" title="${on ? '눌러서 체크 취소 · 다음 수업일에 자동으로 사라져요' : '눌러서 완료 체크 (자동 저장)'}">${on ? (it0.pz && it0.pz[c.x] ? '패스 ' : '✓ ') : ''}${esc(lab)}</button>`; }
-    return `<label class="rchip${cls(c.x + ' ' + (c.st || ''))}" style="display:flex;align-items:center;gap:6px;border-radius:10px;padding:3px 6px"><input type="checkbox" data-ch="hw-sel" data-key="${esc(key)}" aria-label="${esc(c.x)} 선택"${selOf()[key] ? ' checked' : ''}><input type="text" class="hw-pe" data-ch="hw-part-edit" data-id="${c.id}" data-i="${c.i}" value="${esc(c.x)}" aria-label="${esc(c.x)} 내용 수정" style="flex:1;min-width:190px;font-size:12px;padding:2px 6px"></label>`; };
+    if (!bulk) { const it0 = S.hw.items.find(x => x.id === c.id); const on = !!(it0 && it0.chk && it0.chk[c.x]); return `<button type="button" class="rchip rsel${clsC(c)}${on ? ' on hw-ok' : ''}" data-act="hw-chip" data-key="${esc(key)}" aria-pressed="${on}" title="${on ? '눌러서 체크 취소 · 다음 수업일에 자동으로 사라져요' : (/미제출|결석|보류/.test(c.x) || (!/미흡/.test(c.x) && /미제출|결석|보류/.test(c.st || ''))) ? '눌러서 미제출 → 미흡 (한 번 더 누르면 완료)' : '눌러서 완료 체크 (자동 저장)'}">${on ? (it0.pz && it0.pz[c.x] ? '패스 ' : '✓ ') : ''}${esc(lab)}</button>`; }
+    return `<label class="rchip${clsC(c)}" style="display:flex;align-items:center;gap:6px;border-radius:10px;padding:3px 6px"><input type="checkbox" data-ch="hw-sel" data-key="${esc(key)}" aria-label="${esc(c.x)} 선택"${selOf()[key] ? ' checked' : ''}><input type="text" class="hw-pe" data-ch="hw-part-edit" data-id="${c.id}" data-i="${c.i}" value="${esc(c.x)}" aria-label="${esc(c.x)} 내용 수정" style="flex:1;min-width:190px;font-size:12px;padding:2px 6px"></label>`; };
   const body = groups.map(g => {
     const chips = hwChipsOf(g.rows);
     const clsTd = showCls ? `<td style="vertical-align:top">${cchip(g.cls)}</td>` : '';
@@ -2943,7 +2953,7 @@ function syncHw(rec, sid) {
   let range = ps.n + '회차: ' + (use.length ? use.map(([k, v]) => `${SHORT[k] || k} ${v} ${reason}`).join(', ') : '범위 미입력 ' + reason);
   if (!abs && hwcText(r)) range = ps.n + '회차: ' + hwcText(r) + (r.gr ? ', ' + r.gr : '');
   const status = md(rec.d) + ' ' + (abs ? '결석' : (effGr(r) || r.g));
-  if (it) { it.src = id; it.range = range; it.status = status; } else S.hw.items.push({ id: uid('h'), src: id, cls: rec.cls, name, range, status, done: false });
+  if (it) { it.src = id; if (!(it.ren && Object.keys(it.ren).length)) it.range = range; it.status = status; } else S.hw.items.push({ id: uid('h'), src: id, cls: rec.cls, name, range, status, done: false });
   autoCommit('hw', `공통숙제 자동 등록: ${name}`);
 }
 ACT.hwc = b => {
