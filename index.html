@@ -3426,7 +3426,7 @@ function wnPayload() {
   if (!list.length) return null;
   /* 반별 현재 과정: 반 일정(tl)에서 오늘 날짜에 해당하는 항목의 과정(2-1, 2-2, 3-1, 특강 등). 특강반도 같은 구조로 들어가요 */
   const today = todayStr();
-  const classes = liveCls().map(c => { const tl = c.tl || []; let cur = tl[0]; for (const e of tl) if (e[2] <= today) cur = e; return { name: c.name, course: cur ? String(cur[0]) : '', clinicDow: c.clinicDow === undefined ? -1 : c.clinicDow, sessions: tl.map(e => e[2]).filter(d => d && d >= addDays(today, -14)) }; });
+  const classes = liveCls().map(c => { const tl = c.tl || []; let cur = tl[0]; for (const e of tl) if (e[2] <= today) cur = e; return { name: c.name, course: cur ? String(cur[0]) : '', clinicDow: c.clinicDow === undefined ? -1 : c.clinicDow, sessions: tl.map(e => e[2]).filter(d => d), sessionNos: tl.filter(e => e[2]).map(e => parseInt(e[1], 10) || 0) }; });
   /* 토요의무클리닉 '학생체크용 범위' 중 최상위·에이급·쎈만 오답이음으로 보내요 (선택된 날짜 기준 지난주~5주 뒤) */
   const weeks = [];
   try { const d0 = clDate(); [-14, -7, 0, 7, 14, 21, 28].forEach(n => { const d = addDays(d0, n); weeks.push({ date: d, classes: bxClasses(d).map(c => { const g = f => { try { return String(autoCm(c, d, f) || ''); } catch (e) { return ''; } }; let nt; try { nt = ntSess(c, d).map(e => ({ c: String(e.c), n: +e.n, d: e.d })); } catch (e) { nt = undefined; } return { name: c.name, ranges: { n: g('n'), t: g('t'), a: g('a'), s: g('s') }, nt }; }) }); }); } catch (e) { console.warn('weeks', e); }
