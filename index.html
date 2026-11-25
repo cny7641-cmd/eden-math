@@ -1911,8 +1911,8 @@ ACT['hw-book-done'] = b => { const k = b.dataset.k, bk = b.dataset.b; let n = 0;
 ACT['hw-bulk'] = () => { S.ui.hwBulk = !S.ui.hwBulk; S.ui.hwSel = {}; render(); };
 ACT['hw-chip'] = b => { const k = b.dataset.key; const [id, ix] = [k.slice(0, k.lastIndexOf('|')), +k.slice(k.lastIndexOf('|') + 1)]; const it = S.hw.items.find(x => x.id === id); if (!it) return;
   const sp0 = hwSplitParts(it.range); const part = sp0.parts[ix]; if (part == null) return; it.chk = it.chk || {}; const was = !!it.chk[part];
-  if (!was && (/미제출|결석|보류/.test(part) || (!/미흡/.test(part) && /미제출|결석|보류/.test(stShort(it.status))))) { /* 미제출 칩을 누르면 먼저 '미흡'으로, 한 번 더 누르면 완료 */
-    const v = (part.replace(/s*S*(?:미제출|일부미흡|미흡|결석|보류)S*s*$/, '').trim() + ' 미흡').trim(); const ps = sp0.parts.slice(); ps[ix] = v; const ren = Object.assign({}, it.ren || {}); const fk = Object.keys(ren).find(k => ren[k] === part); ren[fk || part] = v; it.ren = ren; it.range = sp0.head + ps.join(', ');
+  if (!was && !/미흡/.test(part) && (/미제출|결석|보류/.test(part) || /미제출|결석|보류/.test(stShort(it.status)))) { /* 미제출 칩을 누르면 먼저 '미흡'으로, 한 번 더 누르면 완료 */
+    const v = (part.replace(/s*(?:결석s*)?S*(?:미제출|일부미흡|미흡|결석|보류)S*s*$/, '').trim() + ' 미흡').trim(); const ps = sp0.parts.slice(); ps[ix] = v; const ren = Object.assign({}, it.ren || {}); const fk = Object.keys(ren).find(k => ren[k] === part); ren[fk || part] = v; it.ren = ren; it.range = sp0.head + ps.join(', ');
     const y1 = window.scrollY; commit('hw', '숙제 미제출 → 미흡: ' + it.name); render(); window.scrollTo(0, y1); return; } it.chk[part] = was ? false : todayStr(); if (was && it.pz) delete it.pz[part];
   const y = window.scrollY; commit('hw', (was ? '숙제 체크 취소: ' : '숙제 체크: ') + it.name + ' ' + part.slice(0, 16)); render(); window.scrollTo(0, y); };
 const hwSelN = () => Object.keys(S.ui.hwSel || {}).length;
@@ -2454,11 +2454,11 @@ function hwFlatTable(groups, showCls) {
   const used = new Set(); groups.forEach(g => { hwChipsOf(g.rows).forEach(c => used.add(c.b)); g.rows.forEach(r => hwPendParts(r).forEach(x => used.add(hwBookOf(x, null)))); });
   const MAIN = ['쎈', '최상위', '에이급']; const colOf = b => MAIN.includes(b) ? b : '기타'; const cols = MAIN.concat([...used].some(b => !MAIN.includes(b)) ? ['기타'] : []); const nc = cols.length + (showCls ? 2 : 1);
   const cls = st => /미제출|결석|보류/.test(st) ? ' n' : /미흡/.test(st) ? ' p' : '';
-  const clsC = c => cls(/미제출|결석|보류|미흡/.test(c.x) ? c.x : c.x + ' ' + (c.st || ''));
+  const clsC = c => /미흡/.test(c.x) ? ' p' : cls(/미제출|결석|보류/.test(c.x) ? c.x : c.x + ' ' + (c.st || ''));
   const selOf = () => S.ui.hwSel || (S.ui.hwSel = {});
   const bulk = !!S.ui.hwBulk;
   const chip = (c) => { const p = hwPartSplit(c.x, c.st); const lab = (p.range + (p.status ? ' ' + p.status : '')).trim() || c.x; const key = c.id + '|' + c.i;
-    if (!bulk) { const it0 = S.hw.items.find(x => x.id === c.id); const on = !!(it0 && it0.chk && it0.chk[c.x]); return `<button type="button" class="rchip rsel${clsC(c)}${on ? ' on hw-ok' : ''}" data-act="hw-chip" data-key="${esc(key)}" aria-pressed="${on}" title="${on ? '눌러서 체크 취소 · 다음 수업일에 자동으로 사라져요' : (/미제출|결석|보류/.test(c.x) || (!/미흡/.test(c.x) && /미제출|결석|보류/.test(c.st || ''))) ? '눌러서 미제출 → 미흡 (한 번 더 누르면 완료)' : '눌러서 완료 체크 (자동 저장)'}">${on ? (it0.pz && it0.pz[c.x] ? '패스 ' : '✓ ') : ''}${esc(lab)}</button>`; }
+    if (!bulk) { const it0 = S.hw.items.find(x => x.id === c.id); const on = !!(it0 && it0.chk && it0.chk[c.x]); return `<button type="button" class="rchip rsel${clsC(c)}${on ? ' on hw-ok' : ''}" data-act="hw-chip" data-key="${esc(key)}" aria-pressed="${on}" title="${on ? '눌러서 체크 취소 · 다음 수업일에 자동으로 사라져요' : (!/미흡/.test(c.x) && (/미제출|결석|보류/.test(c.x) || /미제출|결석|보류/.test(c.st || ''))) ? '눌러서 미제출 → 미흡 (한 번 더 누르면 완료)' : '눌러서 완료 체크 (자동 저장)'}">${on ? (it0.pz && it0.pz[c.x] ? '패스 ' : '✓ ') : ''}${esc(lab)}</button>`; }
     return `<label class="rchip${clsC(c)}" style="display:flex;align-items:center;gap:6px;border-radius:10px;padding:3px 6px"><input type="checkbox" data-ch="hw-sel" data-key="${esc(key)}" aria-label="${esc(c.x)} 선택"${selOf()[key] ? ' checked' : ''}><input type="text" class="hw-pe" data-ch="hw-part-edit" data-id="${c.id}" data-i="${c.i}" value="${esc(c.x)}" aria-label="${esc(c.x)} 내용 수정" style="flex:1;min-width:190px;font-size:12px;padding:2px 6px"></label>`; };
   const body = groups.map(g => {
     const chips = hwChipsOf(g.rows);
