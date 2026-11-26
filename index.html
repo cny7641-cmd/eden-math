@@ -540,7 +540,7 @@ textarea.autosize{overflow:hidden;resize:none;min-height:56px}
 .fin-p{border-top:1px dashed var(--line);padding-top:12px;margin-top:4px}
 .subtabs{margin:0 0 12px}.subtabs button{padding:8px 16px;font-size:15px}
 .fin-grid{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:clip;background:var(--surface)}
-.fin-grid .fr{display:grid;grid-template-columns:88px repeat(var(--nx),minmax(0,1fr)) 78px;border-top:1px solid var(--line);align-items:start}
+.fin-grid .fr{display:grid;grid-template-columns:88px repeat(var(--nx),minmax(0,1fr)) 78px;border-top:1px solid var(--line);align-items:stretch}
 .fin-grid .fr:first-child{border-top:0}
 .fin-grid textarea.ff{max-height:4.7em;overflow:hidden;cursor:pointer}.fin-grid textarea.ff:focus{max-height:none;overflow:auto;cursor:text}
 .fin-grid .fh{background:var(--surface2)}
@@ -2509,7 +2509,7 @@ function buildFinMsg(rec, sid) {
   const r = rec.r[sid] || {}; const name = (S.roster.students.find(x => x.id === sid) || {}).name || r.name || '';
   const has = finHas(r); const st = finStats(rec); const f = finOf(rec); const missing = []; const fb0 = f ? finBlkOf(f.name) : '기본'; const fa = finAllStat(rec.c, fb0); const rk = has ? finRankIn(rec.c, fb0, +r.ftot) : null;
   if (!has) missing.push('점수'); if (!st.n) missing.push('평균'); if (has && !(r.ffb || '').trim()) missing.push('피드백');
-  const vals = { '학생': name, '과정': cn(rec.c), '총괄': f ? f.name : '총괄', '득점': has ? r.ftot : '', '평균': fa && fa.avg != null ? fmt1(fa.avg) : (st.n ? fmt1(st.avg) : '(미정)'), '최고점': fa && fa.max != null ? fa.max : (st.n ? st.max : '(미정)'), '전체평균': fa && fa.avg != null ? fmt1(fa.avg) : '(미정)', '전체최고점': fa && fa.max != null ? fa.max : '(미정)', '등수': rk ? `${rk.rank}등 / ${rk.n}명` : '(미정)', '피드백': (r.ffb || '').trim() || (has ? '[피드백 입력 필요]' : '') };
+  const vals = { '학생': name, '과정': cn(rec.c), '총괄': f ? f.name : '총괄', '득점': has ? r.ftot : '', '평균': fa && fa.avg != null ? fmt1(fa.avg) : (st.n ? fmt1(st.avg) : '(미정)'), '최고점': fa && fa.max != null ? fa.max : (st.n ? st.max : '(미정)'), '전체평균': fa && fa.avg != null ? fmt1(fa.avg) : '(미정)', '전체최고점': fa && fa.max != null ? fa.max : '(미정)', '등수': rk ? `${rk.rank}등 / ${rk.n}명` : '(미정)', '피드백': (r.ffb || '').trim() || '' };
   let tpl = has ? (S.cfg.tpl.finres || TPL_FINRES) : (S.cfg.tpl.finresAbs || TPL_FINRES_ABS);
   if (fa && fa.avg != null) tpl = tpl.replace(/(^|\n)평균(\s*:\s*\{평균\})/g, '$1전체 평균$2'); if (fa && fa.max != null) tpl = tpl.replace(/(^|\n)최고점(\s*:\s*\{최고점\})/g, '$1전체 최고점$2');
   if (!rk) tpl = tpl.split('\n').filter(l => !l.includes('{등수}')).join('\n');
@@ -2532,11 +2532,12 @@ function finGroups(cls) {
 const finActive = x => !x.future && (x.sent ? ((x.rec.fsentOn || x.e.d) >= addDays(S.ui.date, -14)) : x.e.d >= addDays(S.ui.date, -60));
 function finStatsHtml(rec) {
   const s = finStats(rec); const f = finOf(rec); const blk = f ? finBlkOf(f.name) : ''; const fa = f ? finAllStat(rec.c, blk) : null; const dd = f ? finAllGet(rec.c, blk) : null;
-  const cl = s.n ? `<span class="pill acc">반 평균 ${fmt1(s.avg)}</span> <span class="pill acc">반 최고 ${s.max}</span>` : '<span class="muted small">반 점수 없음</span>';
+  const vb = v => `<span class="pill acc" style="display:inline-block;min-width:52px;text-align:center;box-sizing:border-box;padding:2px 6px;font-size:12px">${v}</span>`; const lb = t => `<span class="small" style="white-space:nowrap">${t}</span>`;
+  const cl = s.n ? lb('반 평균') + vb(fmt1(s.avg)) + lb('반 최고') + vb(s.max) : '<span class="muted small" style="grid-column:1/-1">반 점수 없음</span>';
   /* 전체 평균·최고점: 올린 점수로 자동 계산되고, 칸에 직접 쓰면 그 값이 우선해요 (비우면 다시 자동) */
-  const inp = (fld, lab, val, man) => `<label class="small" style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;color:#5b21b6">${lab}<input type="text" inputmode="decimal" data-ch="fa-inl" data-c="${rec.c}" data-b="${blk}" data-f="${fld}" value="${val}" placeholder="-" aria-label="전체 ${lab} (직접 고칠 수 있어요)" title="${man ? '직접 입력한 값이에요. 비우면 올린 점수로 자동 계산해요' : '올린 점수로 자동 계산된 값이에요. 직접 고치면 그 값이 우선해요'}" style="width:52px;padding:2px 6px;font-size:12px;text-align:center;border-radius:99px;background:#ede9fe;border:1px solid ${man ? '#7c3aed' : 'transparent'}"></label>`;
-  const al = f ? `<span style="display:inline-flex;flex-wrap:wrap;gap:4px 8px;align-items:center">${inp('avgM', '전체 평균', fa && fa.avg != null ? fmt1(fa.avg) : '', !!dd && numOrNull(dd.avgM) != null)}${inp('maxM', '전체 최고', fa && fa.max != null ? fa.max : '', !!dd && numOrNull(dd.maxM) != null)}</span>` : '';
-  return `<span style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start"><span style="display:inline-flex;flex-wrap:wrap;gap:4px 6px;align-items:center">${cl}</span>${al}</span>`;
+  const inp = (fld, lab, val, man) => `<span class="small" style="white-space:nowrap;color:#5b21b6">${lab}</span><input type="text" inputmode="decimal" data-ch="fa-inl" data-c="${rec.c}" data-b="${blk}" data-f="${fld}" value="${val}" placeholder="-" aria-label="전체 ${lab} (직접 고칠 수 있어요)" title="${man ? '직접 입력한 값이에요. 비우면 올린 점수로 자동 계산해요' : '올린 점수로 자동 계산된 값이에요. 직접 고치면 그 값이 우선해요'}" style="width:52px;box-sizing:border-box;padding:2px 6px;font-size:12px;text-align:center;border-radius:99px;background:#ede9fe;border:1px solid ${man ? '#7c3aed' : 'transparent'}">`;
+  const al = f ? inp('avgM', '전체 평균', fa && fa.avg != null ? fmt1(fa.avg) : '', !!dd && numOrNull(dd.avgM) != null) + inp('maxM', '전체 최고', fa && fa.max != null ? fa.max : '', !!dd && numOrNull(dd.maxM) != null) : '';
+  return `<span style="display:inline-grid;grid-template-columns:auto auto auto auto;gap:6px 8px;align-items:center;justify-items:start">${cl}${al}</span>`;
 }
 function finCntText(rec) { const L = recStudents(rec); const n = L.filter(s => finHas(rec.r[s.id] || {})).length; return `${n}/${L.length}`; }
 function finFootHtml(rec, sid) {
@@ -2577,7 +2578,7 @@ function finPassHtml(keys, sid) {
 }
 function finTotHtml(keys, sid) { let sum = 0, n = 0; keys.forEach(k => { const c = finCtxKey(k); const r = c && c.rec.r && c.rec.r[sid]; if (r && r.ftot !== '' && r.ftot != null && !isNaN(+r.ftot) && stOf(r) === 'ok') { sum += +r.ftot; n++; } }); return (n ? `<b>${fmt1(Math.round(sum * 10) / 10)}</b><span class="small muted">/ ${n * FIN_Q}</span>` : '<span class="muted small">-</span>') + finPassHtml(keys, sid); }
 function finTotAvg(keys, list) { const v = []; list.forEach(s => { let sum = 0, n = 0; keys.forEach(k => { const c = finCtxKey(k); const r = c && c.rec.r && c.rec.r[s.id]; if (r && r.ftot !== '' && r.ftot != null && !isNaN(+r.ftot)) { sum += +r.ftot; n++; } }); if (n) v.push(sum); }); return v.length ? `<span class="small">평균 <b>${fmt1(Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10)}</b></span>` : ''; }
-function finGroupHtml(cls, g, gi) {
+function finGroupHtml(cls, g, gi, rt) {
   const gk = cls.id + '-' + g.c; let sel = (S.ui.finSel || {})[gk];
   if (sel == null || !g.ex[sel]) { sel = g.ex.findIndex(x => !x.future && !x.sent); if (sel < 0) { const ok = g.ex.map((x, j) => x.future ? -1 : j).filter(j => j >= 0); sel = ok.length ? ok[ok.length - 1] : 0; } }
   const first = g.ex.find(x => !x.future); const list = first ? recStudents(first.rec) : studentsOf(cls.id).map(s => ({ id: s.id, name: s.name }));
@@ -2589,7 +2590,7 @@ function finGroupHtml(cls, g, gi) {
     const r = x.rec.r[s.id] || {}; const k = esc(x.key);
     return `<div class="fx" data-j="${j}" data-k="${finK(x)}" data-l="${x.name}"><div class="fsw"><input type="text" inputmode="decimal" maxlength="4" class="fs" data-ch="fin-tot" data-fk="${k}" data-sid="${s.id}" data-ng="${gi}" data-nc="${j * 2}" data-nr="${ri}" aria-label="${esc(s.name)} ${x.name} 점수" placeholder="점수" value="${esc(r.ftot == null ? '' : r.ftot)}"><button class="btn sm fp" type="button" data-act="fin-polish" data-fk="${k}" data-sid="${s.id}" title="${esc(s.name)} ${x.name} 피드백만 AI로 다듬기" aria-label="${esc(s.name)} ${x.name} 피드백 AI로 다듬기">✨</button></div>
       <textarea rows="1" class="ff" data-ch="fin-fb" data-fk="${k}" data-sid="${s.id}" data-ng="${gi}" data-nc="${j * 2 + 1}" data-nr="${ri}" aria-label="${esc(s.name)} ${x.name} 피드백" placeholder="피드백">${esc(r.ffb || '')}</textarea></div>`; }).join('')}<div class="ftc" data-ftk="${tkA}" data-sid="${s.id}">${finTotHtml(tk, s.id)}</div></div>`).join('') || '<div class="empty">이 반에 학생이 없어요.</div>';
-  const foot = g.ex.map((x, j) => x.future ? `<div data-j="${j}"></div>` : `<div class="fxf" data-j="${j}" data-k="${finK(x)}"><span data-fstat="${esc(x.key)}">${finStatsHtml(x.rec)}</span><div style="flex-basis:100%;width:100%;margin-top:2px"><button class="btn sm${(S.ui.finSend || {})[x.key] ? ' pri' : ''}" type="button" data-act="fin-send" data-fk="${esc(x.key)}" aria-expanded="${!!(S.ui.finSend || {})[x.key]}">${(S.ui.finSend || {})[x.key] ? '▲' : '▼'} ${finK(x)}총괄 문자${x.rec.fsent ? ' ✓' : ''}</button></div></div>`).join('') + `<div class="ftc" data-ftavg="${tkA}">${finTotAvg(tk, list)}</div>`;
+  const foot = g.ex.map((x, j) => x.future ? `<div data-j="${j}"></div>` : `<div class="fxf" data-j="${j}" data-k="${finK(x)}"><span data-fstat="${esc(x.key)}">${finStatsHtml(x.rec)}</span></div>`).join('') + `<div class="ftc" data-ftavg="${tkA}">${finTotAvg(tk, list)}</div>`;
   const days = x => [1, 2, 3, 4, 5, 6, 7].map(k => addDays(x.e.d, k)).map(d => `<option value="${d}"${x.rec.resultDate === d ? ' selected' : ''}>${mdw(d)}</option>`).join('');
   const sends = g.ex.filter(x => !x.future && (S.ui.finSend || {})[x.key]).map(x => `<div class="fin-x stack" data-fk="${esc(x.key)}"><div class="row"><b>${x.name} 결과 문자</b><span class="small muted">(${list.length}명)</span><span class="grow"></span>
       <label class="small row" style="gap:6px">발송일 <select data-ch="fin-rday" data-fk="${esc(x.key)}" style="width:auto"><option value="">선택</option>${days(x)}</select></label>
@@ -2597,6 +2598,7 @@ function finGroupHtml(cls, g, gi) {
     <div class="row" style="gap:6px"><button class="btn sm" type="button" data-act="msg-all" data-v="1">모두 펼치기</button><button class="btn sm" type="button" data-act="msg-all" data-v="0">모두 접기</button><span class="small muted">학생별 문자는 접힌 채 시작해요</span></div><div class="stack" id="fm-${esc(x.key)}">${finMsgsHtml(x.key, x.rec)}</div></div>`).join('');
   return `<section class="card stack fin-g" id="fg-${esc(cls.id)}-${esc(g.c)}"><div class="card-h" style="margin:0"><h3>${cchip(cls.id)} ${cn(g.c)}과정 총괄</h3><span class="sub">${cn(g.c)}과정만 ${FIN_Q}문항 · 문항당 1점 · ${FIN_Q}점 만점</span></div>
     <div class="fin-scroll"><div class="fin-grid" style="--nx:${nx}"><div class="fr fh"><div class="fn">학생</div>${head}</div><div class="fr fsub"><div class="fn"></div>${g.ex.map((x, j) => `<div class="fxs" data-j="${j}" data-k="${finK(x)}"><span>점수</span><span>피드백</span></div>`).join('')}<div class="fxs"></div></div>${rows}<div class="fr ft"><div class="fn small muted">반 · 전체<br>평균·최고</div>${foot}</div></div></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-start">${g.ex.filter(x => !x.future).map(x => `<button class="btn${(S.ui.finSend || {})[x.key] ? ' pri' : ''}" type="button" data-act="fin-send" data-fk="${esc(x.key)}" aria-expanded="${!!(S.ui.finSend || {})[x.key]}">${(S.ui.finSend || {})[x.key] ? '▲' : '▼'} ${finK(x)}총괄 문자${x.rec.fsent ? ' ✓' : ''}</button>`).join('')}<span class="grow"></span>${rt || ''}</div>
     <div class="small muted">점수 칸에서 <b>Enter</b>(또는 ↓)를 누르면 아래 학생으로, ↑는 위로 이동해요. <b>Tab</b>은 옆 칸(피드백)으로 가요. 피드백 칸에서 줄바꿈은 Shift+Enter.</div>
     ${sends}</section>`;
 }
@@ -2728,6 +2730,7 @@ function finView0() {
 /* ===== 총괄평가: 평가 하나를 고르고 [성적] [분석] [피드백·발송] 으로 나눠서 작업 ===== */
 (() => { if (document.getElementById('fin-mode-css')) return; const st = document.createElement('style'); st.id = 'fin-mode-css';
   st.textContent = '.fin-mode-s .ff,.fin-mode-s .fp,.fin-mode-s .fin-x,.fin-mode-s .fxf [data-act="fin-send"],.fin-mode-s .fxh [data-act="fin-polish"]{display:none!important}.fin-mode-s .fxs span:nth-child(2){display:none}'; document.head.appendChild(st); })();
+(() => { if (document.getElementById('fin-pop-css')) return; const st = document.createElement('style'); st.id = 'fin-pop-css'; st.textContent = '.fin-pop{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto}.fin-pop-bg{position:fixed;inset:0;background:rgba(0,0,0,.4)}.fin-pop-box{position:relative;background:var(--surface,#fff);border-radius:14px;padding:18px 20px;width:min(900px,100%);box-shadow:0 12px 40px rgba(0,0,0,.3)}'; document.head.appendChild(st); })();
 (() => { if (document.getElementById('sess-top-css')) return; const st = document.createElement('style'); st.id = 'sess-top-css'; st.textContent = '.sess-top{position:sticky;top:calc(var(--topH,0px) + var(--idx1H,0px));z-index:18;background:var(--bg);padding:0 0 10px;margin:0 0 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}.top-tabs{display:flex;gap:26px;border-bottom:1px solid var(--line)}.top-tabs button{border:0;background:none;font:inherit;font-size:17px;font-weight:500;color:var(--muted);padding:10px 2px;margin-bottom:-1px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}.top-tabs button:hover{color:var(--ink)}.top-tabs button[aria-selected=true]{color:var(--ink);font-weight:800;border-bottom-color:var(--accent)}.sess-cls{display:flex;align-items:center;gap:10px;min-width:0}.sess-lbl{font-size:12px;font-weight:600;color:var(--muted);flex:none}.cchips{display:flex;gap:8px;overflow-x:auto;padding:2px;scrollbar-width:thin;min-width:0}.cch{flex:none;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}.cch:hover{border-color:var(--accent)}.cch[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}.cdot{width:8px;height:8px;border-radius:50%;background:var(--ci,var(--muted));flex:none;display:inline-block}.sess-sub{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.sub-seg{display:inline-flex;background:var(--surface2);border-radius:8px;padding:3px;gap:2px;max-width:100%;overflow-x:auto}.sub-seg button{border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}.sub-seg button:hover{color:var(--ink)}.sub-seg button[aria-selected=true]{background:var(--accent);color:var(--accent-ink);font-weight:700}'; document.head.appendChild(st); })();
 (() => { if (document.getElementById('sj-main-css')) return; const st = document.createElement('style'); st.id = 'sj-main-css'; st.textContent = '.sj-nav .sj-main{white-space:normal}.sj-nav .sj-main .seg.tabx button{border:0;font-size:14px;font-weight:600;padding:8px 26px 7px}.sj-nav .sj-main .seg.tabx button[aria-pressed=true]{font-weight:800;padding-top:12px}.sj-nav .sj-main .seg.tabx{padding-top:4px}'; document.head.appendChild(st); })();
 function finUpcomingHtml() {
@@ -2741,40 +2744,72 @@ function finView() {
   const pend = finEntries(); const showAll = !!S.ui.finAll;
   const chips = pend.map(x => { const n = x.rec ? finCntText(x.rec) : '0/' + studentsOf(x.cls.id).length; return `<button class="finchip${S.ui.finKey === x.key ? ' on' : ''}" data-act="fin-open" data-sk="${esc(x.key)}">${cchip(x.cls.id)} <b>${cn(x.e.c)} ${x.name}</b> <span class="small">${md(x.e.d)} 응시 · ${x.rec && x.rec.resultDate ? '발송 ' + mdw(x.rec.resultDate) + ' · ' : ''}입력 ${n}</span></button>`; }).join('');
   const groups = finGroups(cls);
-  const vis = groups.filter(g => showAll || g.ex.some(finActive) || (S.ui.finKey && g.ex.some(x => x.key === S.ui.finKey)));
+  const vis = groups;
   const upc = groups.flatMap(g => g.ex.filter(x => x.future)).sort((a, b) => a.e.d.localeCompare(b.e.d));
-  const gc = vis.find(g => g.c === S.ui.finC) || vis[0] || null;
-  const tab = S.ui.finTab === 'rng' ? 'rng' : 'score'; /* 성적·피드백·발송은 한 화면, 분석 탭은 없앴어요 */
+  const isAll = S.ui.finC === '__all' && vis.length > 0;
+  const gc = vis.find(g => g.c === S.ui.finC) || vis.find(g => g.ex.some(finActive)) || vis[vis.length - 1] || null;
+  const tab = 'score'; /* 성적·피드백·발송은 한 화면, 분석 탭은 없앴어요 */
   let sx = null, blk = '';
   if (gc) { const want = S.ui.finBlk; sx = gc.ex.find(x => finK(x) === want) || gc.ex.find(x => !x.future && !x.sent) || gc.ex.filter(x => !x.future).slice(-1)[0] || gc.ex[0]; blk = finK(sx); }
-  const sel = `<div class="row" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
-    ${gc ? `<div class="field" style="width:140px"><label for="fin-c-s">과정</label><select id="fin-c-s" data-ch="fin-c-sel">${vis.map(g => `<option value="${esc(g.c)}"${g.c === gc.c ? ' selected' : ''}>${cn(g.c)}</option>`).join('')}</select></div>
-    <div class="field" style="width:150px"><label for="fin-b-s">평가</label><select id="fin-b-s" data-ch="fin-blk-sel">${gc.ex.map(x => `<option value="${finK(x)}"${x === sx ? ' selected' : ''}>${x.name}${x.future ? ' (예정)' : ''}</option>`).join('')}</select></div>` : ''}
-    <label class="row small" style="gap:6px;padding-bottom:8px"><input type="checkbox" data-ch="fin-all" ${showAll ? 'checked' : ''}> 지난 총괄도 보기</label>
-    ${gc && gc.ex.filter(x => !x.future).length > 1 ? `<label class="row small" style="gap:6px;padding-bottom:8px"><input type="checkbox" data-ch="fin-cmp" ${S.ui.finCmp ? 'checked' : ''}> 기본·심화 같이 보기</label>` : ''}</div>`;
+  const shownK = (S.ui.finCmp && gc && gc.ex.length > 1) ? gc.ex.map(finK) : [blk];
+  const sel = `<div class="row" style="align-items:flex-end;gap:12px;flex-wrap:wrap;width:100%">
+    ${gc ? `<div class="field" style="width:140px"><label for="fin-c-s">과정</label><select id="fin-c-s" data-ch="fin-c-sel"><option value="__all"${isAll ? ' selected' : ''}>전체</option>${vis.map(g => `<option value="${esc(g.c)}"${!isAll && g.c === gc.c ? ' selected' : ''}>${cn(g.c)}</option>`).join('')}</select></div>
+    ${isAll ? '' : `<div class="field"><label>평가</label><div class="row" style="gap:14px;padding:6px 0">${gc.ex.map(x => `<label class="row small" style="gap:6px;cursor:pointer"><input type="checkbox" data-ch="fin-blk-chk" data-k="${finK(x)}" ${shownK.includes(finK(x)) ? 'checked' : ''}> ${x.name}${x.future ? ' (예정)' : ''}</label>`).join('')}</div></div>`}` : ''}
+    <span class="grow"></span><button class="btn" type="button" data-act="fin-rng-open" title="총괄 범위(시험 범위) 보기·수정">📋 총괄범위</button></div>`;
   const tabBtn = (k, l) => `<button role="tab" data-act="fin-tab" data-t="${k}" aria-selected="${tab === k}">${l}</button>`;
-  const head = `<div class="cl-sticky" style="position:static"><div class="sess-sub"><div class="sub-seg" role="tablist" aria-label="총괄평가 작업">${tabBtn('rng', '총괄범위')}${tabBtn('score', '성적·피드백·발송')}</div></div>${tab === 'rng' ? '' : `<div style="padding-top:6px">${sel}</div>`}</div>`;
+  const head = `<div class="cl-sticky" style="position:static"><div style="padding-top:6px">${sel}</div></div>`;
+  const rtHtml = chips ? `<details class="small" style="text-align:right"><summary style="cursor:pointer">문자 안 보낸 총괄 ${pend.length}건</summary><div class="finchips" style="margin-top:6px;text-align:left">${chips}</div></details>` : '<span class="small muted">보내지 않은 총괄 결과 문자가 없어요 ✓</span>';
   let body = '';
   if (tab === 'rng') body = finRngCard(cls);
-  else if (!gc) body = `<div class="card empty">${esc(cls.name)}: 등록된 평가 없음 · 지금 입력할 총괄평가가 없어요. ${groups.length ? '‘지난 총괄도 보기’를 켜면 이전 결과도 볼 수 있어요.' : ''}</div>`;
+  else if (isAll) body = finAllCoursesHtml(cls, groups);
+  else if (!gc) body = `<div class="card empty">${esc(cls.name)}: 등록된 평가 없음 · 지금 입력할 총괄평가가 없어요.</div>`;
   else {
-    const gView = { c: gc.c, ex: S.ui.finCmp ? gc.ex : [sx] };
+    const gView = { c: gc.c, ex: shownK.length > 1 ? gc.ex : [sx] };
     const rng = finRngOf(gc.c, blk);
     if (tab === 'score') body = `<div class="row" style="gap:8px;align-items:flex-start;flex-wrap:wrap"><b>${cn(gc.c)} ${sx.name}</b><span class="small muted">${mdw(sx.e.d)}</span></div>
       <details class="card"><summary style="cursor:pointer"><b>기준 점수 · 결과 가져오기</b> <span class="small muted">전체 평균·최고점 입력, 엑셀·CSV·사진 올리기</span></summary><div style="margin-top:8px">${finAllCard(finAllKey(gc.c, blk))}</div></details>
-      ${finGroupHtml(cls, gView, 0)}`;
+      ${finGroupHtml(cls, gView, 0, rtHtml)}`;
 
   }
-  return `<div class="row" style="flex-wrap:wrap"><div class="grow"></div>${chips ? `<details class="small"><summary style="cursor:pointer">문자 안 보낸 총괄 ${pend.length}건</summary><div class="finchips" style="margin-top:6px">${chips}</div></details>` : '<span class="small muted">보내지 않은 총괄 결과 문자가 없어요 ✓</span>'}</div>
+  return `${tab === 'rng' ? `<div class="row" style="flex-wrap:wrap"><div class="grow"></div>${rtHtml}</div>` : ''}
   ${head}
   ${body}
-  ${finUpcomingHtml()}`;
+  ${finUpcomingHtml()}
+  ${finFbPopHtml()}
+  ${S.ui.finRngOpen ? `<div class="fin-pop"><div class="fin-pop-bg" data-act="fin-rng-close"></div><div class="fin-pop-box"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">총괄범위</h3><span class="grow"></span><button class="btn sm" type="button" data-act="fin-rng-close">닫기 ✕</button></div>${finRngCard(cls)}</div></div>` : ''}`;
 }
+/* 과정 '전체': 모든 과정의 기본·심화 총괄 점수를 한 표에. 점수를 누르면 그 학생의 피드백이 팝업으로 떠요 */
+function finAllCoursesHtml(cls, groups) {
+  const list = studentsOf(cls.id).map(s => ({ id: s.id, name: s.name, removed: s.removed }));
+  const cols = groups.flatMap(g => g.ex.map(x => ({ g, x })));
+  if (!cols.length) return '<div class="card empty">등록된 총괄평가가 없어요.</div>';
+  const head1 = groups.map(g => '<th colspan="' + g.ex.length + '" style="text-align:center;border-left:2px solid var(--line)">' + cn(g.c) + '</th>').join('');
+  const head2 = cols.map(({ g, x }, i) => '<th style="text-align:center;font-weight:600;' + (g.ex[0] === x ? 'border-left:2px solid var(--line)' : '') + '">' + (finK(x)) + '<br><span class="small muted">' + mdw(x.e.d) + '</span></th>').join('');
+  const body = list.map(s => '<tr><td style="white-space:nowrap"><b>' + nameLk(s) + '</b></td>' + cols.map(({ g, x }) => {
+    const bl = g.ex[0] === x ? 'border-left:2px solid var(--line);' : '';
+    if (x.future || !x.rec) return '<td class="muted small" style="text-align:center;' + bl + '">예정</td>';
+    const r = x.rec.r[s.id] || {}; const has = finHas(r); const fb = String(r.ffb || '').trim();
+    return '<td style="text-align:center;' + bl + '"><button type="button" class="btn sm" style="min-width:52px;justify-content:center" data-act="fin-fb-open" data-fk="' + esc(x.key) + '" data-sid="' + s.id + '" title="' + (fb ? esc(fb.slice(0, 60)) : '눌러서 피드백 보기·쓰기') + '">' + (has ? '<b>' + r.ftot + '</b>' : '<span class="muted">-</span>') + (fb ? ' <span style="color:var(--accent)" aria-label="피드백 있음">●</span>' : '') + '</button></td>';
+  }).join('') + '</tr>').join('');
+  return '<section class="card stack"><div class="card-h" style="margin:0"><h3>' + cchip(cls.id) + ' 전체 과정 총괄 점수</h3><span class="sub">점수를 누르면 피드백이 떠요 · ● 는 피드백이 있는 학생</span></div><div class="tbl-wrap"><table><thead><tr><th rowspan="2">학생</th>' + head1 + '</tr><tr>' + head2 + '</tr></thead><tbody>' + body + '</tbody></table></div></section>';
+}
+function finFbPopHtml() {
+  const o = S.ui.finFbOpen; if (!o) return ''; const ctx = finCtxKey(o.fk); if (!ctx) return '';
+  const rec = ctx.rec; const r = rec.r[o.sid] || {}; const f = finOf(rec); const nm = stuName(o.sid) || r.name || '';
+  return '<div class="fin-pop"><div class="fin-pop-bg" data-act="fin-fb-close"></div><div class="fin-pop-box" style="width:min(560px,100%)" data-fk="' + esc(o.fk) + '"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">' + esc(nm) + ' · ' + cn(rec.c) + ' ' + (f ? f.name : '총괄') + '</h3><span class="grow"></span><button class="btn sm" type="button" data-act="fin-fb-close">닫기 ✕</button></div>'
+    + '<div class="row" style="gap:8px;margin-bottom:8px"><label class="small" for="fbp-t">점수</label><input id="fbp-t" type="text" inputmode="decimal" maxlength="4" style="width:70px;text-align:center;font-weight:700" data-ch="fin-tot" data-fk="' + esc(o.fk) + '" data-sid="' + o.sid + '" value="' + esc(r.ftot == null ? '' : r.ftot) + '"><span class="small muted">/ ' + FIN_Q + '</span></div>'
+    + '<textarea rows="7" style="width:100%;font:inherit;line-height:1.55" data-ch="fin-fb" data-fk="' + esc(o.fk) + '" data-sid="' + o.sid + '" placeholder="피드백" aria-label="피드백">' + esc(r.ffb || '') + '</textarea></div></div>';
+}
+ACT['fin-fb-open'] = b => { S.ui.finFbOpen = { fk: b.dataset.fk, sid: b.dataset.sid }; render(); };
+ACT['fin-fb-close'] = () => { S.ui.finFbOpen = null; render(); };
+ACT['fin-rng-open'] = () => { S.ui.finRngOpen = true; render(); };
+ACT['fin-rng-close'] = () => { S.ui.finRngOpen = false; render(); };
 ACT['fin-tab'] = b => { S.ui.finTab = b.dataset.t; render(); };
 CH['fin-cls-sel'] = el => { ACT['pick-cls']({ dataset: { id: el.value } }); };
 CH['fin-c-sel'] = el => { S.ui.finC = el.value; render(); };
 CH['fin-blk-sel'] = el => { S.ui.finBlk = el.value; render(); };
 CH['fin-cmp'] = el => { S.ui.finCmp = el.checked; render(); };
+CH['fin-blk-chk'] = el => { const nx = Array.from(document.querySelectorAll('input[data-ch="fin-blk-chk"]')).filter(b => b.checked).map(b => b.dataset.k); if (!nx.length) { render(); return; } if (nx.length > 1) S.ui.finCmp = true; else { S.ui.finCmp = false; S.ui.finBlk = nx[0]; } render(); };
 function finPending() { return finEntries().length; }
 function finSubTabs() {
   const n = finPending(); const fin = S.ui.sTab === 'fin';
@@ -2784,7 +2819,7 @@ ACT['fin-ex'] = b => { (S.ui.finSel = S.ui.finSel || {})[b.dataset.gk] = +b.data
 ACT.stab = b => { S.ui.sTab = b.dataset.k; render(); window.scrollTo(0, 0); };
 ACT['fin-open'] = b => {
   const ctx = finCtxKey(b.dataset.sk); if (!ctx) return;
-  S.ui.finKey = b.dataset.sk; S.ui.cls = ctx.cls.id; S.ui.tab = 'session'; S.ui.sTab = 'fin'; render();
+  S.ui.finKey = b.dataset.sk; S.ui.finC = ctx.e.c; S.ui.cls = ctx.cls.id; S.ui.tab = 'session'; S.ui.sTab = 'fin'; render();
   const g = document.getElementById('fg-' + ctx.cls.id + '-' + ctx.e.c); if (g) { const top = g.getBoundingClientRect().top + window.scrollY - (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topH')) || 90) - 8; window.scrollTo(0, Math.max(0, top)); } else window.scrollTo(0, 0);
 };
 const finDesc = (rec, t) => `${clsName(rec.cls)} ${cn(rec.c)}과정 ${(finOf(rec) || { name: '총괄' }).name} ${t}`;
