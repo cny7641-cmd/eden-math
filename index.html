@@ -548,7 +548,7 @@ textarea.autosize{overflow:hidden;resize:none;min-height:56px}
 .fin-grid .ftc,.fin-grid .ftch{padding:10px 8px;border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center}.fin-grid .ftc b{font-size:18px}.fin-grid .ftch{font-weight:700}
 .fin-grid .fn{padding:10px 12px;display:flex;align-items:center;min-height:46px}
 .fin-grid .fxh,.fin-grid .fxf{padding:10px 12px;border-left:1px solid var(--line);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.fin-grid .fx{padding:6px 10px;border-left:1px solid var(--line);display:grid;grid-template-columns:60px minmax(0,1fr);gap:8px;align-items:start}
+.fin-grid .fx{padding:6px 10px;border-left:1px solid var(--line);display:grid;grid-template-columns:60px minmax(0,3fr) minmax(0,2fr);gap:8px;align-items:start}
 .fin-grid .fx.fut,.fin-grid .fxh.fut{background:repeating-linear-gradient(135deg,transparent 0 8px,var(--surface2) 8px 9px);display:flex;align-items:center}
 .fin-grid .sc{display:flex;gap:6px;align-items:center}
 .fin-grid .fsw{display:flex;flex-direction:column;gap:4px;align-items:stretch}
@@ -586,7 +586,7 @@ button.gs-i:hover,button.gs-i:focus{background:var(--surface2)}
 .fin-scroll{overflow-x:auto;border-radius:12px;-webkit-overflow-scrolling:touch}
 .fin-scroll .fin-grid{min-width:600px}
 .fin-grid .fsub{background:var(--surface2);font-size:11px;color:var(--muted)}
-.fin-grid .fxs{display:grid;grid-template-columns:60px minmax(0,1fr);gap:8px;padding:3px 10px;border-left:0}
+.fin-grid .fxs{display:grid;grid-template-columns:60px minmax(0,3fr) minmax(0,2fr);gap:8px;padding:3px 10px;border-left:0}
 .fin-grid .fxs[data-j="1"]{border-left:2px solid var(--line)}
 .fin-grid .fxs span:first-child{text-align:center}
 .fin-grid .fr .fn{position:sticky;left:0;z-index:1;background:var(--surface)}
@@ -2508,7 +2508,7 @@ function finStats(rec) {
 function buildFinMsg(rec, sid) {
   const r = rec.r[sid] || {}; const name = (S.roster.students.find(x => x.id === sid) || {}).name || r.name || '';
   const has = finHas(r); const st = finStats(rec); const f = finOf(rec); const missing = []; const fb0 = f ? finBlkOf(f.name) : '기본'; const fa = finAllStat(rec.c, fb0); const rk = has ? finRankIn(rec.c, fb0, +r.ftot) : null;
-  if (!has) missing.push('점수'); if (!st.n) missing.push('평균'); if (has && !(r.ffb || '').trim()) missing.push('피드백');
+  if (!has) missing.push('점수'); if (!st.n) missing.push('평균'); if (has && !(r.ffb || '').trim() && !(r.fmemo || '').trim()) missing.push('피드백');
   const vals = { '학생': name, '과정': cn(rec.c), '총괄': f ? f.name : '총괄', '득점': has ? r.ftot : '', '평균': fa && fa.avg != null ? fmt1(fa.avg) : (st.n ? fmt1(st.avg) : '(미정)'), '최고점': fa && fa.max != null ? fa.max : (st.n ? st.max : '(미정)'), '전체평균': fa && fa.avg != null ? fmt1(fa.avg) : '(미정)', '전체최고점': fa && fa.max != null ? fa.max : '(미정)', '등수': rk ? `${rk.rank}등 / ${rk.n}명` : '(미정)', '피드백': (r.ffb || '').trim() || '' };
   let tpl = has ? (S.cfg.tpl.finres || TPL_FINRES) : (S.cfg.tpl.finresAbs || TPL_FINRES_ABS);
   if (fa && fa.avg != null) tpl = tpl.replace(/(^|\n)평균(\s*:\s*\{평균\})/g, '$1전체 평균$2'); if (fa && fa.max != null) tpl = tpl.replace(/(^|\n)최고점(\s*:\s*\{최고점\})/g, '$1전체 최고점$2');
@@ -2588,8 +2588,9 @@ function finGroupHtml(cls, g, gi, rt) {
   const rows = list.map((s, ri) => `<div class="fr"><div class="fn">${nameLk(s)}${s.removed ? ' <span class="pill">명단 제외</span>' : ''}</div>${g.ex.map((x, j) => {
     if (x.future) return `<div class="fx fut" data-j="${j}" data-k="${finK(x)}" data-l="${x.name}"><span class="muted small">${mdw(x.e.d)} 시험 후 입력</span></div>`;
     const r = x.rec.r[s.id] || {}; const k = esc(x.key);
-    return `<div class="fx" data-j="${j}" data-k="${finK(x)}" data-l="${x.name}"><div class="fsw"><input type="text" inputmode="decimal" maxlength="4" class="fs" data-ch="fin-tot" data-fk="${k}" data-sid="${s.id}" data-ng="${gi}" data-nc="${j * 2}" data-nr="${ri}" aria-label="${esc(s.name)} ${x.name} 점수" placeholder="점수" value="${esc(r.ftot == null ? '' : r.ftot)}"><button class="btn sm fp" type="button" data-act="fin-polish" data-fk="${k}" data-sid="${s.id}" title="${esc(s.name)} ${x.name} 피드백만 AI로 다듬기" aria-label="${esc(s.name)} ${x.name} 피드백 AI로 다듬기">✨</button></div>
-      <textarea rows="1" class="ff" data-ch="fin-fb" data-fk="${k}" data-sid="${s.id}" data-ng="${gi}" data-nc="${j * 2 + 1}" data-nr="${ri}" aria-label="${esc(s.name)} ${x.name} 피드백" placeholder="피드백">${esc(r.ffb || '')}</textarea></div>`; }).join('')}<div class="ftc" data-ftk="${tkA}" data-sid="${s.id}">${finTotHtml(tk, s.id)}</div></div>`).join('') || '<div class="empty">이 반에 학생이 없어요.</div>';
+    return `<div class="fx" data-j="${j}" data-k="${finK(x)}" data-l="${x.name}"><div class="fsw"><input type="text" inputmode="decimal" maxlength="4" class="fs" data-ch="fin-tot" data-fk="${k}" data-sid="${s.id}" data-ng="${gi}" data-nc="${j * 3}" data-nr="${ri}" aria-label="${esc(s.name)} ${x.name} 점수" placeholder="점수" value="${esc(r.ftot == null ? '' : r.ftot)}"><button class="btn sm fp" type="button" data-act="fin-polish" data-fk="${k}" data-sid="${s.id}" title="${esc(s.name)} ${x.name} 피드백만 AI로 다듬기" aria-label="${esc(s.name)} ${x.name} 피드백 AI로 다듬기">✨</button></div>
+      <textarea rows="1" class="ff" data-ch="fin-fb" data-fk="${k}" data-sid="${s.id}" data-ng="${gi}" data-nc="${j * 3 + 1}" data-nr="${ri}" aria-label="${esc(s.name)} ${x.name} 피드백" placeholder="피드백">${esc(r.ffb || '')}</textarea>
+      <textarea rows="1" class="ff fm" data-ch="fin-memo" data-fk="${k}" data-sid="${s.id}" data-ng="${gi}" data-nc="${j * 3 + 2}" data-nr="${ri}" aria-label="${esc(s.name)} ${x.name} 메모" placeholder="메모 (문자에는 안 들어가요)">${esc(r.fmemo || '')}</textarea></div>`; }).join('')}<div class="ftc" data-ftk="${tkA}" data-sid="${s.id}">${finTotHtml(tk, s.id)}</div></div>`).join('') || '<div class="empty">이 반에 학생이 없어요.</div>';
   const foot = g.ex.map((x, j) => x.future ? `<div data-j="${j}"></div>` : `<div class="fxf" data-j="${j}" data-k="${finK(x)}"><span data-fstat="${esc(x.key)}">${finStatsHtml(x.rec)}</span></div>`).join('') + `<div class="ftc" data-ftavg="${tkA}">${finTotAvg(tk, list)}</div>`;
   const days = x => [1, 2, 3, 4, 5, 6, 7].map(k => addDays(x.e.d, k)).map(d => `<option value="${d}"${x.rec.resultDate === d ? ' selected' : ''}>${mdw(d)}</option>`).join('');
   const sends = g.ex.filter(x => !x.future && (S.ui.finSend || {})[x.key]).map(x => `<div class="fin-x stack" data-fk="${esc(x.key)}"><div class="row"><b>${x.name} 결과 문자</b><span class="small muted">(${list.length}명)</span><span class="grow"></span>
@@ -2597,7 +2598,7 @@ function finGroupHtml(cls, g, gi, rt) {
       <label class="row small" style="gap:6px"><input type="checkbox" data-ch="fin-sent" data-fk="${esc(x.key)}" ${x.rec.fsent ? 'checked' : ''}> 발송 완료${x.rec.fsent && x.rec.fsentOn ? ` (${md(x.rec.fsentOn)})` : ''}</label><button class="btn sm" type="button" data-act="fin-send" data-fk="${esc(x.key)}">접기 ▲</button></div>
     <div class="row" style="gap:6px"><button class="btn sm" type="button" data-act="msg-all" data-v="1">모두 펼치기</button><button class="btn sm" type="button" data-act="msg-all" data-v="0">모두 접기</button><span class="small muted">학생별 문자는 접힌 채 시작해요</span></div><div class="stack" id="fm-${esc(x.key)}">${finMsgsHtml(x.key, x.rec)}</div></div>`).join('');
   return `<section class="card stack fin-g" id="fg-${esc(cls.id)}-${esc(g.c)}"><div class="card-h" style="margin:0"><h3>${cchip(cls.id)} ${cn(g.c)}과정 총괄</h3><span class="sub">${cn(g.c)}과정만 ${FIN_Q}문항 · 문항당 1점 · ${FIN_Q}점 만점</span></div>
-    <div class="fin-scroll"><div class="fin-grid" style="--nx:${nx}"><div class="fr fh"><div class="fn">학생</div>${head}</div><div class="fr fsub"><div class="fn"></div>${g.ex.map((x, j) => `<div class="fxs" data-j="${j}" data-k="${finK(x)}"><span>점수</span><span>피드백</span></div>`).join('')}<div class="fxs"></div></div>${rows}<div class="fr ft"><div class="fn small muted">반 · 전체<br>평균·최고</div>${foot}</div></div></div>
+    <div class="fin-scroll"><div class="fin-grid" style="--nx:${nx}"><div class="fr fh"><div class="fn">학생</div>${head}</div><div class="fr fsub"><div class="fn"></div>${g.ex.map((x, j) => `<div class="fxs" data-j="${j}" data-k="${finK(x)}"><span>점수</span><span>피드백</span><span>메모</span></div>`).join('')}<div class="fxs"></div></div>${rows}<div class="fr ft"><div class="fn small muted">반 · 전체<br>평균·최고</div>${foot}</div></div></div>
     <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-start">${g.ex.filter(x => !x.future).map(x => `<button class="btn${(S.ui.finSend || {})[x.key] ? ' pri' : ''}" type="button" data-act="fin-send" data-fk="${esc(x.key)}" aria-expanded="${!!(S.ui.finSend || {})[x.key]}">${(S.ui.finSend || {})[x.key] ? '▲' : '▼'} ${finK(x)}총괄 문자${x.rec.fsent ? ' ✓' : ''}</button>`).join('')}<span class="grow"></span>${rt || ''}</div>
     <div class="small muted">점수 칸에서 <b>Enter</b>(또는 ↓)를 누르면 아래 학생으로, ↑는 위로 이동해요. <b>Tab</b>은 옆 칸(피드백)으로 가요. 피드백 칸에서 줄바꿈은 Shift+Enter.</div>
     ${sends}</section>`;
@@ -2788,17 +2789,17 @@ function finAllCoursesHtml(cls, groups) {
   const body = list.map(s => '<tr><td style="white-space:nowrap"><b>' + nameLk(s) + '</b></td>' + cols.map(({ g, x }) => {
     const bl = g.ex[0] === x ? 'border-left:2px solid var(--line);' : '';
     if (x.future || !x.rec) return '<td class="muted small" style="text-align:center;' + bl + '">예정</td>';
-    const r = x.rec.r[s.id] || {}; const has = finHas(r); const fb = String(r.ffb || '').trim();
-    return '<td style="text-align:center;' + bl + '"><button type="button" class="btn sm" style="min-width:52px;justify-content:center" data-act="fin-fb-open" data-fk="' + esc(x.key) + '" data-sid="' + s.id + '" title="' + (fb ? esc(fb.slice(0, 60)) : '눌러서 피드백 보기·쓰기') + '">' + (has ? '<b>' + r.ftot + '</b>' : '<span class="muted">-</span>') + (fb ? ' <span style="color:var(--accent)" aria-label="피드백 있음">●</span>' : '') + '</button></td>';
+    const r = x.rec.r[s.id] || {}; const has = finHas(r); const fb = String(r.ffb || '').trim(); const mm = String(r.fmemo || '').trim(); const tip = [fb ? '피드백: ' + fb : '', mm ? '메모: ' + mm : ''].filter(Boolean).join('\n');
+    return '<td style="text-align:center;' + bl + '"><button type="button" class="btn sm" style="min-width:52px;justify-content:center" data-act="fin-fb-open" data-fk="' + esc(x.key) + '" data-sid="' + s.id + '" title="' + (tip ? esc(tip.length > 300 ? tip.slice(0, 300) + '…' : tip) : '눌러서 피드백·메모 보기·쓰기') + '">' + (has ? '<b>' + r.ftot + '</b>' : '<span class="muted">-</span>') + ((fb || mm) ? ' <span style="color:var(--accent)" aria-label="피드백 또는 메모 있음">●</span>' : '') + '</button></td>';
   }).join('') + '</tr>').join('');
-  return '<section class="card stack"><div class="card-h" style="margin:0"><h3>' + cchip(cls.id) + ' 전체 과정 총괄 점수</h3><span class="sub">점수를 누르면 피드백이 떠요 · ● 는 피드백이 있는 학생</span></div><div class="tbl-wrap"><table><thead><tr><th rowspan="2">학생</th>' + head1 + '</tr><tr>' + head2 + '</tr></thead><tbody>' + body + '</tbody></table></div></section>';
+  return '<section class="card stack"><div class="card-h" style="margin:0"><h3>' + cchip(cls.id) + ' 전체 과정 총괄 점수</h3><span class="sub">점수에 마우스를 올리면 피드백·메모가 떠요 · 누르면 팝업 · ● 는 피드백·메모가 있는 학생</span></div><div class="tbl-wrap"><table><thead><tr><th rowspan="2">학생</th>' + head1 + '</tr><tr>' + head2 + '</tr></thead><tbody>' + body + '</tbody></table></div></section>';
 }
 function finFbPopHtml() {
   const o = S.ui.finFbOpen; if (!o) return ''; const ctx = finCtxKey(o.fk); if (!ctx) return '';
   const rec = ctx.rec; const r = rec.r[o.sid] || {}; const f = finOf(rec); const nm = stuName(o.sid) || r.name || '';
   return '<div class="fin-pop"><div class="fin-pop-bg" data-act="fin-fb-close"></div><div class="fin-pop-box" style="width:min(560px,100%)" data-fk="' + esc(o.fk) + '"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">' + esc(nm) + ' · ' + cn(rec.c) + ' ' + (f ? f.name : '총괄') + '</h3><span class="grow"></span><button class="btn sm" type="button" data-act="fin-fb-close">닫기 ✕</button></div>'
     + '<div class="row" style="gap:8px;margin-bottom:8px"><label class="small" for="fbp-t">점수</label><input id="fbp-t" type="text" inputmode="decimal" maxlength="4" style="width:70px;text-align:center;font-weight:700" data-ch="fin-tot" data-fk="' + esc(o.fk) + '" data-sid="' + o.sid + '" value="' + esc(r.ftot == null ? '' : r.ftot) + '"><span class="small muted">/ ' + FIN_Q + '</span></div>'
-    + '<textarea rows="7" style="width:100%;font:inherit;line-height:1.55" data-ch="fin-fb" data-fk="' + esc(o.fk) + '" data-sid="' + o.sid + '" placeholder="피드백" aria-label="피드백">' + esc(r.ffb || '') + '</textarea></div></div>';
+    + '<textarea rows="7" style="width:100%;font:inherit;line-height:1.55" data-ch="fin-fb" data-fk="' + esc(o.fk) + '" data-sid="' + o.sid + '" placeholder="피드백" aria-label="피드백">' + esc(r.ffb || '') + '</textarea><textarea rows="3" style="width:100%;font:inherit;line-height:1.55;margin-top:8px" data-ch="fin-memo" data-fk="' + esc(o.fk) + '" data-sid="' + o.sid + '" placeholder="메모 (문자에는 안 들어가요)" aria-label="메모">' + esc(r.fmemo || '') + '</textarea></div></div>';
 }
 ACT['fin-fb-open'] = b => { S.ui.finFbOpen = { fk: b.dataset.fk, sid: b.dataset.sid }; render(); };
 ACT['fin-fb-close'] = () => { S.ui.finFbOpen = null; render(); };
@@ -2838,6 +2839,7 @@ CH['fin-tot'] = el => {
   if (v === '') r.ftot = ''; else { const n = parseFloat(v.replace(',', '.')); r.ftot = isNaN(n) ? '' : Math.min(FIN_Q, Math.max(0, Math.round(n * 10) / 10)); el.value = r.ftot; }
   commitRec(rec, finDesc(rec, '점수 입력')); finUpdate(el.dataset.fk);
 };
+CH['fin-memo'] = el => { const { rec } = finCtx(el); const r = resOf(rec, el.dataset.sid, stuName(el.dataset.sid)); r.fmemo = el.value; commitRec(rec, finDesc(rec, '메모 입력')); finUpdate(el.dataset.fk, true); };
 CH['fin-fb'] = el => { const { rec } = finCtx(el); const r = resOf(rec, el.dataset.sid, stuName(el.dataset.sid)); r.ffb = el.value; commitRec(rec, finDesc(rec, '피드백 입력')); finUpdate(el.dataset.fk); };
 CH['fin-sent'] = el => { const { rec } = finCtx(el); rec.fsent = el.checked; if (el.checked) rec.fsentOn = todayStr(); else delete rec.fsentOn; commitRec(rec, finDesc(rec, el.checked ? '결과 문자 발송 완료' : '발송 완료 해제')); render(); };
 CH['fin-rday'] = el => { const { rec } = finCtx(el); rec.resultDate = el.value; commitRec(rec, finDesc(rec, '결과 발송일')); };
