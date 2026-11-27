@@ -1586,6 +1586,17 @@ function planContApply(rows) {
       if (ch) { r[f] = ps.map(x => x.sep !== undefined ? x.sep : x.raw !== undefined ? x.raw : x.pre + x.step + x.rest).join(''); n++; } }); });
   return n;
 }
+/* 중3-1 계획서 1~7회에 함수특강(일차함수·이차함수…) 내용이 섞여 들어간 경우, 강의계획서 원본(기본 데이터)으로 되돌려요. 한 번만 적용해요 */
+function planFixSync() {
+  if (!S.loaded || !S.cfg || S.cfg.planFixV || !S.plan) return;
+  S.cfg.planFixV = 1; const cur = S.plan['3-1'], base = PLAN.full['3-1']; let n = 0;
+  if (cur && base) { const sp = S.plan['특강'] || [];
+    const rows = clone(cur).map(r => { const o = base.find(x => x.n === r.n); if (!o || r.n > 7) return r;
+      const bad = (sp.some(x => x.n === r.n && x.unit && x.unit === r.unit) || r.prog || r.hwn) && r.unit !== o.unit; if (!bad) return r; n++; return clone(o); });
+    if (n) { planContApply(rows); S.plan['3-1'] = rows; autoCommit('plan', '중3-1 강의계획서 1~7회를 원본으로 복구'); }
+  }
+  autoCommit('cfg', '강의계획서 복구 확인'); if (n) setTimeout(() => toast('중3-1 강의계획서 ' + n + '개 회차를 원본으로 복구했어요'), 300);
+}
 function planContSync() {
   if (!S.loaded || !S.cfg || S.cfg.planContV || !S.plan) return;
   let n = 0; const names = COURSES.concat(Object.keys(S.plan).filter(c => !COURSES.includes(c)));
@@ -1599,6 +1610,7 @@ function render() {
   if (!S.loaded) return;
   try { bgSync(); } catch (e) { console.warn(e); }
   try { tlSync(); } catch (e) { console.warn(e); }
+  try { planFixSync(); } catch (e) { console.warn(e); }
   try { planContSync(); } catch (e) { console.warn(e); }
   try { holSync(); } catch (e) { console.warn(e); }
   try { piiSync(); } catch (e) { console.warn(e); }
