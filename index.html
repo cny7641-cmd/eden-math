@@ -194,7 +194,7 @@ tr.rp-dh>td{background:var(--surface2,#f3f5f8);padding:6px 10px;border-top:1px s
 .set-wrap .set-nav button{text-align:left;border:0;border-radius:8px;padding:9px 12px;border-bottom:0!important;margin:0}.set-wrap .set-nav button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);font-weight:700}
 @media (max-width:900px){.set-wrap{grid-template-columns:minmax(0,1fr)}.set-wrap .set-nav.seg.tabx{flex-direction:row;overflow-x:auto;position:static}}
 .spk{vertical-align:middle;margin-left:6px}
-.cqg-wrap{overflow:auto;max-height:calc(100vh - var(--topH,0px) - var(--clfixH,0px) - 24px)}.cqg-one{min-width:max-content}.cqg-one tr.cqg-sec>th{background:var(--surface2,#f3f5f8);border-top:2px solid var(--line);vertical-align:bottom;font-size:12px}.cqg-one tr.cqg-sec>th.car{background:var(--warn-soft)}.cqg-one tr.cqg-sec>th.cqg-s1,.cqg-one tr.cqg-sec>th.cqg-s2{background:var(--surface2,#f3f5f8)}.cqg-one tr.cqg-gh-r>td{text-align:left;position:sticky;left:0;background:var(--surface);padding:8px 12px;font-size:14px;border-top:3px solid var(--accent)}.cqg-one th.cqg-h{min-width:76px;max-width:130px}.cqg-gh{margin:10px 0 6px;padding:6px 12px;background:var(--surface2,#f3f5f8);border-radius:10px;border:1px solid var(--line)}
+.cqg-wrap{overflow-x:auto;scrollbar-width:none}.cqg-wrap::-webkit-scrollbar{display:none}.cqg-hs{position:sticky;bottom:0;z-index:6;height:18px;overflow-x:auto;overflow-y:hidden;background:var(--surface);border-top:1px solid var(--line)}.cqg-one{width:100%}.cqg-tbl.cqg-noctl td.cqg-a{min-width:200px}.cqg-one tr.cqg-sec>th{background:var(--surface2,#f3f5f8);border-top:2px solid var(--line);vertical-align:bottom;font-size:12px}.cqg-one tr.cqg-sec>th.car{background:var(--warn-soft)}.cqg-one tr.cqg-sec>th.cqg-s1,.cqg-one tr.cqg-sec>th.cqg-s2{background:var(--surface2,#f3f5f8)}.cqg-one tr.cqg-gh-r>td{text-align:left;position:sticky;left:0;background:var(--surface);padding:8px 12px;font-size:14px;border-top:3px solid var(--accent)}.cqg-one th.cqg-h{min-width:60px;max-width:130px}.cqg-gh{margin:10px 0 6px;padding:6px 12px;background:var(--surface2,#f3f5f8);border-radius:10px;border:1px solid var(--line)}
 .cld-fc{display:flex;flex-wrap:wrap;gap:4px}.cld-fc button{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:3px 12px;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}.cld-fc button:hover{border-color:var(--accent)}.cld-fc button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink,#fff);border-color:var(--accent);font-weight:700}.cqg-at{display:inline-block;min-width:176px;vertical-align:middle;white-space:nowrap}
 .cd-evs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.cd-ev{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--surface);font:inherit;color:inherit;cursor:pointer}.cd-ev:hover{border-color:var(--accent)}
 .bxp-wrap{display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:14px;align-items:start}.bxp-left{display:flex;flex-direction:column;gap:12px;min-width:0}.bxp-prev{position:sticky;top:calc(var(--topH,0px) + var(--clfixH,0px) + 8px)}.bxp-steps{background:var(--surface2,#f3f5f8)}
@@ -4792,6 +4792,17 @@ function cqSub(r, date) {
   const cols = [0, 1, 2, 3].map(c => rows.filter(i => colOf(i.lab) === c).map(i => cqChip(date, r.s, i, it.k)).join(''));
   return `<tr class="cq-sub"><td colspan="8">${rows.length ? `<div class="cq-g">${cols.map(h => `<div>${h}</div>`).join('')}</div>` : '<span class="muted small">범위 없음</span>'}</td></tr>`;
 }
+/* 체크표 가로 스크롤바: 표가 길어도 화면 아래쪽에 늘 붙어 있는 막대로 좌우로 밀 수 있게 */
+function cqgHs() {
+  document.querySelectorAll('.cqg-wrap').forEach(w => {
+    const nx = w.nextElementSibling; if (nx && nx.classList.contains('cqg-hs')) nx.remove();
+    if (w.scrollWidth <= w.clientWidth + 1) return;
+    const h = document.createElement('div'); h.className = 'cqg-hs'; h.setAttribute('aria-hidden', 'true'); const i = document.createElement('div'); i.style.cssText = 'height:1px;width:' + w.scrollWidth + 'px'; h.appendChild(i); w.after(h);
+    h.addEventListener('scroll', () => { if (w.scrollLeft !== h.scrollLeft) w.scrollLeft = h.scrollLeft; });
+    w.addEventListener('scroll', () => { if (h.scrollLeft !== w.scrollLeft) h.scrollLeft = w.scrollLeft; });
+  });
+}
+window.addEventListener('resize', () => { try { cqgHs(); } catch (e) { } });
 function clGridHtml(date, list, atCell, lvCell, gk) {
   if (!list.length) return '<div class="empty">조건에 맞는 학생이 없어요.</div>';
   const sel = S.ui.clSel || {};
@@ -4819,7 +4830,7 @@ function clGridHtml(date, list, atCell, lvCell, gk) {
   const rowOf = (r, p) => {
     const { cols, colKeys, per } = p.P; const s = r.s; const away = r.a === '결석'; const P = per.get(s.id);
     const att = `<span class="cqg-at"><select style="width:auto" aria-label="${esc(s.name)} 출결" data-ch="cl-edit" data-d="${date}" data-s="${s.id}" data-f="a">${CL_ATT.map(o => `<option value="${o}"${r.a === o ? ' selected' : ''}>${o || '미확인'}</option>`).join('')}</select>${atCell(r)}</span>`;
-    const ctl = away ? `<label class="small" style="white-space:nowrap">보강일 <input type="date" style="width:auto" aria-label="${esc(s.name)} 클리닉 보강 날짜" data-ch="mk-date" data-d="${date}" data-s="${s.id}" value="${esc(clLog(date, s.id).mk || '')}"></label>` : clCtl(s, date);
+    const ctl = away ? `<label class="small" style="white-space:nowrap">보강일 <input type="date" style="width:auto" aria-label="${esc(s.name)} 클리닉 보강 날짜" data-ch="mk-date" data-d="${date}" data-s="${s.id}" value="${esc(clLog(date, s.id).mk || '')}"></label>` : (S.ui.clCtlShow ? clCtl(s, date) : '');
     let cells = '';
     if (away) cells = `<td colspan="${maxN + 1}" class="muted small" style="text-align:center">결석</td>`;
     else {
@@ -4828,10 +4839,10 @@ function clGridHtml(date, list, atCell, lvCell, gk) {
       const rest = P.rows.filter(i => !colKeys.has(ck(i)));
       cells += `<td class="cqg-x"><div class="cq-w">${rest.map(i => cqChip(date, s, i, P.it.k)).join('')}</div></td>`;
     }
-    return `<tr id="cld-r-${s.id}" class="${away ? 'cl-abs' : ''}"><td class="cqg-s1"><input type="checkbox" data-ch="cld-sel" data-s="${s.id}" aria-label="${esc(s.name)} 선택"${sel[s.id] ? ' checked' : ''}></td><td class="cqg-n cqg-s2"><b>${nameLk(s)}</b> <span class="small muted">${esc(clSlotTxt(r.slot, date, s))}</span></td><td class="cqg-a">${att} ${ctl}</td><td style="white-space:nowrap">${lvCell(r)}</td>${cells}<td class="num cl-prog" data-s="${s.id}">${cldProgHtml(r.a, clProg(date, s))}</td><td style="text-align:right"><button class="btn sm${S.ui.clDetail === s.id ? ' pri' : ''}" data-act="cld-open" data-s="${s.id}">${S.ui.clDetail === s.id ? '닫기' : '상세'}</button></td></tr>`;
+    return `<tr id="cld-r-${s.id}" class="${away ? 'cl-abs' : ''}"><td class="cqg-s1"><input type="checkbox" data-ch="cld-sel" data-s="${s.id}" aria-label="${esc(s.name)} 선택"${sel[s.id] ? ' checked' : ''}></td><td class="cqg-n cqg-s2"><b>${nameLk(s)}</b> <span class="small muted">${esc(clSlotTxt(r.slot, date, s))}</span>${tmOf(date, s) && !['10:00', '12:00', '14:00'].includes(tmOf(date, s)) ? ` <span class="pill warn" title="이 학생은 이 시간에 등원해요">${tmTxt(tmOf(date, s))} 등원</span>` : ''}</td><td class="cqg-a">${att} ${ctl}</td><td style="white-space:nowrap">${lvCell(r)}</td>${cells}<td class="num cl-prog" data-s="${s.id}">${cldProgHtml(r.a, clProg(date, s))}</td><td style="text-align:right"><button class="btn sm${S.ui.clDetail === s.id ? ' pri' : ''}" data-act="cld-open" data-s="${s.id}">${S.ui.clDetail === s.id ? '닫기' : '상세'}</button></td></tr>`;
   };
   const body = parts.map(p => p.head ? `<tr class="cqg-gh-r"><td colspan="${total}">${p.head}</td></tr>` : secHead(p) + p.rs.map(r => rowOf(r, p)).join('')).join('');
-  return `<div class="small muted" style="margin-bottom:6px">칸을 누르면 ○ → ✓ → ✕ 순서로 바뀌어요. 노란 열은 반 전체가 똑같이 이월된 항목이고, 학생마다 다른 이월·개별 과제는 맨 오른쪽 [개별 · 이월] 칸에 나와요. 열 제목의 [전원 ✓]는 출석·지각한 학생 중 아직 표시 안 한 칸만 ✓로 바꿔요(✕로 표시한 칸은 그대로).</div><div class="tbl-wrap cqg-wrap"><table class="cqg-tbl cqg-one"><tbody>${body}</tbody></table></div>`;
+  return `<div class="small muted" style="margin-bottom:6px">칸을 누르면 ○ → ✓ → ✕ 순서로 바뀌어요. 노란 열은 반 전체가 똑같이 이월된 항목이고, 학생마다 다른 이월·개별 과제는 맨 오른쪽 [개별 · 이월] 칸에 나와요. 열 제목의 [전원 ✓]는 출석·지각한 학생 중 아직 표시 안 한 칸만 ✓로 바꿔요(✕로 표시한 칸은 그대로).</div><div class="tbl-wrap cqg-wrap"><table class="cqg-tbl cqg-one${S.ui.clCtlShow ? '' : ' cqg-noctl'}"><tbody>${body}</tbody></table></div>`;
 }
 function clDayView(date) {
   const F = CL_F(); const gk = F.g == null ? 't' : F.g; const all = clDayRows(date); const list = clDayList(date); const sel = S.ui.clSel || {};
@@ -4853,7 +4864,7 @@ function clDayView(date) {
     if (gk && k !== prevK) { prevK = k; const grp = list.filter(x => keyOf(x) === k); const here = grp.filter(x => x.a === '출석' || x.a === '지각').length;
       const lab = gk === 't' ? (() => { const z = SLOTS.find(q => q[0] === k); return z ? `${z[1]} · ${z[2]}` : '타임 없음'; })() : esc(clsName(k)); rows += `<tr><td colspan="8" style="background:var(--surface2,#f3f5f8)"><b>${lab}</b> <span class="small muted">· ${grp.length}명 · 출석 ${here}/${grp.length}</span></td></tr>`; }
     rows += rowHtml(r); });
-  return `<div class="row" style="flex-wrap:wrap;gap:8px"><span class="small muted">대상 ${all.length}명 ·</span>${chip('none', '출석 미확인', nNone, nNone ? 'warn' : '')}${chip('abs', '결석', nAbs, nAbs ? 'bad' : '')}${chip('hw', '과제 미완료', nHw, nHw ? 'warn' : '')}${F.st ? '<button class="btn sm" data-act="cld-st" data-st="">필터 해제</button>' : ''}<span class="grow"></span><span class="cq-seg" role="group" aria-label="보기 방식"><button class="btn sm${S.ui.clMode === 'chips' ? '' : ' pri'}" data-act="cl-q" data-v="grid" aria-pressed="${S.ui.clMode !== 'chips'}" title="학생×항목 표에서 체크">체크표</button><button class="btn sm${S.ui.clMode === 'chips' ? ' pri' : ''}" data-act="cl-q" data-v="chips" aria-pressed="${S.ui.clMode === 'chips'}" title="학생 줄 아래에서 체크">줄에서 체크</button></span></div>
+  return `<div class="row" style="flex-wrap:wrap;gap:8px"><span class="small muted">대상 ${all.length}명 ·</span>${chip('none', '출석 미확인', nNone, nNone ? 'warn' : '')}${chip('abs', '결석', nAbs, nAbs ? 'bad' : '')}${chip('hw', '과제 미완료', nHw, nHw ? 'warn' : '')}${F.st ? '<button class="btn sm" data-act="cld-st" data-st="">필터 해제</button>' : ''}<span class="grow"></span>${S.ui.clMode !== 'chips' ? `<button class="btn sm${S.ui.clCtlShow ? ' pri' : ''}" data-act="cl-ctl" aria-pressed="${!!S.ui.clCtlShow}" title="[이번만 변경]과 [등원] 칸을 보이거나 숨겨요">이번만 변경·등원 ${S.ui.clCtlShow ? '숨기기' : '보기'}</button> ` : ''}<span class="cq-seg" role="group" aria-label="보기 방식"><button class="btn sm${S.ui.clMode === 'chips' ? '' : ' pri'}" data-act="cl-q" data-v="grid" aria-pressed="${S.ui.clMode !== 'chips'}" title="학생×항목 표에서 체크">체크표</button><button class="btn sm${S.ui.clMode === 'chips' ? ' pri' : ''}" data-act="cl-q" data-v="chips" aria-pressed="${S.ui.clMode === 'chips'}" title="학생 줄 아래에서 체크">줄에서 체크</button></span></div>
   <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
     ${(() => { const grp = (lab, k, cur, opts) => `<div class="field"><label>${lab}</label><div class="cld-fc" role="group" aria-label="${lab}">${opts.map(([v, l]) => `<button type="button" data-act="cld-fb" data-k="${k}" data-v="${esc(v)}" aria-pressed="${cur === v}">${esc(l)}</button>`).join('')}</div></div>`;
       return grp('시간', 't', F.t || '', [['', '전체'], ...SLOTS.map(([t, lab, hr]) => [t, lab + ' · ' + hr])]) + grp('반', 'c', F.c || '', [['', '전체'], ...clClasses(date).map(c => [c.id, c.name])]) + grp('묶기', 'g', gk, [['t', '시간별'], ['c', '반별'], ['', '묶지 않음']]); })()}
@@ -4878,6 +4889,7 @@ function clShell(date, body, view) {
 }
 ACT['cl-view'] = b => { S.ui.clView = b.dataset.v === 'prep' ? 'prep' : 'day'; render(); };
 ACT['cld-st'] = b => { const F = CL_F(); F.st = F.st === b.dataset.st ? '' : b.dataset.st; render(); };
+ACT['cl-ctl'] = () => { S.ui.clCtlShow = !S.ui.clCtlShow; render(); };
 ACT['cld-fb'] = b => { const F = CL_F(); F[b.dataset.k] = b.dataset.v; render(); };
 CH['cld-f'] = el => { const F = CL_F(); const k = el.dataset.k; F[k] = k === 'need' ? el.checked : el.value; render(); };
 document.addEventListener('input', ev => { const el = ev.target; if (el && el.id === 'cld-q') { CL_F().q = el.value; const p = el.selectionStart; render(); const n = $('#cld-q'); if (n) { n.focus(); try { n.setSelectionRange(p, p); } catch (e) { } } } });
@@ -7181,7 +7193,7 @@ document.addEventListener('click', ev => { if (!ev.target.closest('.gsearch')) {
 function numberRoster() {
   document.querySelectorAll('#view table.ros-tbl tbody').forEach(tb => { let n = 0; tb.querySelectorAll(':scope > tr').forEach(tr => { if (tr.classList.contains('note-row') || tr.classList.contains('done-row')) return; const td = tr.firstElementChild; if (!td || !(td.querySelector('a.name-link') || td.querySelector('input[data-f=name]'))) return; n++; const sp = document.createElement('span'); sp.className = 'rn'; sp.textContent = n + '.'; td.insertBefore(sp, td.firstChild); }); });
 }
-function afterRender() { try { if (RPL.qr && S.ui.tab === 'rpt') rplDrawQr(); } catch (e) { } try { healthCheck(); } catch (e) { console.warn(e); } labelTables(); setTopH(); colorize(); try { numberRoster(); } catch (e) { } try { const on = document.querySelector('.cch[aria-pressed=true]'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { } }
+function afterRender() { try { cqgHs(); } catch (e) { } try { if (RPL.qr && S.ui.tab === 'rpt') rplDrawQr(); } catch (e) { } try { healthCheck(); } catch (e) { console.warn(e); } labelTables(); setTopH(); colorize(); try { numberRoster(); } catch (e) { } try { const on = document.querySelector('.cch[aria-pressed=true]'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { } }
 (() => { let q = false; const v = $('#view'); if (!v || !window.MutationObserver) return; new MutationObserver(() => { if (q) return; q = true; requestAnimationFrame(() => { q = false; try { labelTables(); } catch (e) { /* ignore */ } }); }).observe(v, { childList: true, subtree: true }); })();
 
 /* ===== 외부 호스팅용 추가 기능: 백업 알림 · 저장 공간 경고 · PIN 잠금 ===== */
