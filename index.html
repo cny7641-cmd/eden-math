@@ -4653,7 +4653,7 @@ const clAtTxt = t => { const m = String(t || '').match(/^(\d{1,2}):(\d{2})/); re
 const clSlotTxt = (t, date, s) => { const x = SLOTS.find(z => z[0] === t); const base = x ? x[2].replace(/오전 |낮 |오후 /, '') : ''; const tm = s ? tmOf(date, s) : ''; return tm ? tmTxt(tm) : base; };
 function clProg(date, s) { const it = itemsOf(date, s), rows = dispItems(it); const done = rows.filter(r => it.k[r.key] === 1).length; return { done, tot: rows.length, miss: rows.filter(r => it.k[r.key] === 0).length }; }
 function clDayRows(date) {
-  return clStudents(date).map(s => ({ s, slot: slotOf(date, s), a: clLog(date, s.id).a || '', at: clLog(date, s.id).at || '', p: clProg(date, s) }))
+  return clStudents(date).map(s => ({ s, slot: slotOf(date, s), a: clLog(date, s.id).a || '', at: clLog(date, s.id).at || '', lv: clLog(date, s.id).lv || '', p: clProg(date, s) }))
     .sort((x, y) => String(x.slot).localeCompare(String(y.slot)) || (S.cfg.classes.findIndex(c => c.id === x.s.cls) - S.cfg.classes.findIndex(c => c.id === y.s.cls)) || byName(x.s, y.s));
 }
 function clDayFilter(rows) {
@@ -4677,12 +4677,16 @@ function clDayView(date) {
   const ds = detailId ? S.roster.students.find(x => x.id === detailId) : null; const di = detailId ? list.findIndex(r => r.s.id === detailId) : -1;
   const open = clOpen().filter(x => !x.f);
   const atCell = r => !r.at ? '' : (S.ui.clAtEdit === r.s.id ? ` <input type="time" style="width:110px" aria-label="${esc(r.s.name)} 출석 시각" data-ch="cld-at" data-s="${r.s.id}" value="${esc(r.at)}">` : ` <button type="button" class="small" data-act="cld-at-edit" data-s="${r.s.id}" title="출석 시각 수정" style="border:0;background:none;color:var(--accent);cursor:pointer;padding:0 2px">${clAtTxt(r.at)}</button>`);
-  const rowHtml = r => { const s = r.s, c = clsById(s.cls); const on = detailId === s.id; return `<tr class="${r.a === '결석' ? 'cl-abs' : ''}"${on ? ' style="background:var(--accent-soft)"' : ''}><td style="width:30px"><input type="checkbox" data-ch="cld-sel" data-s="${s.id}" aria-label="${esc(s.name)} 선택"${sel[s.id] ? ' checked' : ''}></td><td><b>${nameLk(s)}</b></td><td>${c ? cchip(c.id) : ''}</td><td class="small">${esc(clSlotTxt(r.slot, date, s))}</td><td style="white-space:nowrap"><span style="display:inline-block;min-width:168px;vertical-align:middle"><select style="width:auto" aria-label="${esc(s.name)} 출결" data-ch="cl-edit" data-d="${date}" data-s="${s.id}" data-f="a">${CL_ATT.map(o => `<option value="${o}"${r.a === o ? ' selected' : ''}>${o || '미확인'}</option>`).join('')}</select>${atCell(r)}</span>${r.a === '결석' ? `<label class="small row" style="display:inline-flex;gap:6px;align-items:center;vertical-align:middle;white-space:nowrap">보강일<input type="date" style="width:auto" aria-label="${esc(s.name)} 클리닉 보강 날짜" data-ch="mk-date" data-d="${date}" data-s="${s.id}" value="${esc(clLog(date, s.id).mk || '')}"></label>` : clCtl(s, date)}</td><td class="num">${r.a === '결석' ? '<span class="muted">-</span>' : `<b>${r.p.done}</b>/${r.p.tot}${r.p.miss ? ` <span class="pill bad" title="미완료로 표시한 항목">✕${r.p.miss}</span>` : ''}`}</td><td style="text-align:right"><button class="btn sm${on ? ' pri' : ''}" data-act="cld-open" data-s="${s.id}">${on ? '닫기' : '상세'}</button></td></tr>`; };
-  const detailRow = () => !ds ? '' : `<tr id="cld-detail"><td colspan="7" style="background:var(--surface2,#f3f5f8);padding:10px"><div class="stack" style="gap:8px"><div class="row" style="flex-wrap:wrap"><b>${esc(ds.name)} 상세</b><span class="small muted">${esc(clsName(ds.cls))} · ${esc(clSlotTxt(slotOf(date, ds), date, ds))}</span><span class="grow"></span><button class="btn sm" data-act="cld-nav" data-n="-1"${di <= 0 ? ' disabled' : ''}>‹ 이전 학생</button><button class="btn sm" data-act="cld-nav" data-n="1"${di < 0 || di >= list.length - 1 ? ' disabled' : ''}>다음 학생 ›</button><button class="btn sm" data-act="cld-close">닫기</button></div><div class="tbl-wrap"><table><thead><tr>${clHead().replace('학생 · 출결 · 메모', '학생 · 메모')}</tr></thead><tbody>${clRow(ds, date, true, true)}</tbody></table></div></div></td></tr>`;
+  const lvCell = r => { if (!(r.a === '출석' || r.a === '지각')) return ''; const sid = r.s.id;
+    if (!r.lv) return `<button type="button" class="btn sm" data-act="cld-lv" data-s="${sid}" title="누르면 지금 시각이 귀가 시간으로 기록돼요">귀가</button>`;
+    if (S.ui.clLvEdit === sid) return `<input type="time" style="width:110px" aria-label="${esc(r.s.name)} 귀가 시각" data-ch="cld-lv" data-s="${sid}" value="${esc(r.lv)}">`;
+    return `<span style="white-space:nowrap"><button type="button" class="small" data-act="cld-lv-edit" data-s="${sid}" title="귀가 시각 수정" style="border:0;background:none;color:var(--accent);cursor:pointer;padding:0 2px">${clAtTxt(r.lv)}</button><button type="button" class="small" data-act="cld-lv-x" data-s="${sid}" title="귀가 기록 지우기" aria-label="${esc(r.s.name)} 귀가 기록 지우기" style="border:0;background:none;color:var(--muted);cursor:pointer;padding:0 2px">✕</button></span>`; };
+  const rowHtml = r => { const s = r.s, c = clsById(s.cls); const on = detailId === s.id; return `<tr class="${r.a === '결석' ? 'cl-abs' : ''}"${on ? ' style="background:var(--accent-soft)"' : ''}><td style="width:30px"><input type="checkbox" data-ch="cld-sel" data-s="${s.id}" aria-label="${esc(s.name)} 선택"${sel[s.id] ? ' checked' : ''}></td><td><b>${nameLk(s)}</b></td><td>${c ? cchip(c.id) : ''}</td><td class="small">${esc(clSlotTxt(r.slot, date, s))}</td><td style="white-space:nowrap"><span style="display:inline-block;min-width:168px;vertical-align:middle"><select style="width:auto" aria-label="${esc(s.name)} 출결" data-ch="cl-edit" data-d="${date}" data-s="${s.id}" data-f="a">${CL_ATT.map(o => `<option value="${o}"${r.a === o ? ' selected' : ''}>${o || '미확인'}</option>`).join('')}</select>${atCell(r)}</span>${r.a === '결석' ? `<label class="small row" style="display:inline-flex;gap:6px;align-items:center;vertical-align:middle;white-space:nowrap">보강일<input type="date" style="width:auto" aria-label="${esc(s.name)} 클리닉 보강 날짜" data-ch="mk-date" data-d="${date}" data-s="${s.id}" value="${esc(clLog(date, s.id).mk || '')}"></label>` : clCtl(s, date)}</td><td style="white-space:nowrap;min-width:120px">${lvCell(r)}</td><td class="num">${r.a === '결석' ? '<span class="muted">-</span>' : `<b>${r.p.done}</b>/${r.p.tot}${r.p.miss ? ` <span class="pill bad" title="미완료로 표시한 항목">✕${r.p.miss}</span>` : ''}`}</td><td style="text-align:right"><button class="btn sm${on ? ' pri' : ''}" data-act="cld-open" data-s="${s.id}">${on ? '닫기' : '상세'}</button></td></tr>`; };
+  const detailRow = () => !ds ? '' : `<tr id="cld-detail"><td colspan="8" style="background:var(--surface2,#f3f5f8);padding:10px"><div class="stack" style="gap:8px"><div class="row" style="flex-wrap:wrap"><b>${esc(ds.name)} 상세</b><span class="small muted">${esc(clsName(ds.cls))} · ${esc(clSlotTxt(slotOf(date, ds), date, ds))}</span><span class="grow"></span><button class="btn sm" data-act="cld-nav" data-n="-1"${di <= 0 ? ' disabled' : ''}>‹ 이전 학생</button><button class="btn sm" data-act="cld-nav" data-n="1"${di < 0 || di >= list.length - 1 ? ' disabled' : ''}>다음 학생 ›</button><button class="btn sm" data-act="cld-close">닫기</button></div><div class="tbl-wrap"><table><thead><tr>${clHead().replace('학생 · 출결 · 메모', '학생 · 메모')}</tr></thead><tbody>${clRow(ds, date, true, true)}</tbody></table></div></div></td></tr>`;
   const keyOf = r => gk === 'c' ? r.s.cls : gk === 't' ? r.slot : ''; let rows = '', prevK = null;
   list.forEach(r => { const k = keyOf(r);
     if (gk && k !== prevK) { prevK = k; const grp = list.filter(x => keyOf(x) === k); const here = grp.filter(x => x.a === '출석' || x.a === '지각').length;
-      const lab = gk === 't' ? (() => { const z = SLOTS.find(q => q[0] === k); return z ? `${z[1]} · ${z[2]}` : '타임 없음'; })() : esc(clsName(k)); rows += `<tr><td colspan="7" style="background:var(--surface2,#f3f5f8)"><b>${lab}</b> <span class="small muted">· ${grp.length}명 · 출석 ${here}/${grp.length}</span></td></tr>`; }
+      const lab = gk === 't' ? (() => { const z = SLOTS.find(q => q[0] === k); return z ? `${z[1]} · ${z[2]}` : '타임 없음'; })() : esc(clsName(k)); rows += `<tr><td colspan="8" style="background:var(--surface2,#f3f5f8)"><b>${lab}</b> <span class="small muted">· ${grp.length}명 · 출석 ${here}/${grp.length}</span></td></tr>`; }
     rows += rowHtml(r) + (r.s.id === detailId ? detailRow() : ''); });
   return `<div class="row" style="flex-wrap:wrap;gap:8px"><span class="small muted">대상 ${all.length}명 ·</span>${chip('none', '출석 미확인', nNone, nNone ? 'warn' : '')}${chip('abs', '결석', nAbs, nAbs ? 'bad' : '')}${chip('hw', '과제 미완료', nHw, nHw ? 'warn' : '')}${F.st ? '<button class="btn sm" data-act="cld-st" data-st="">필터 해제</button>' : ''}</div>
   <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
@@ -4692,7 +4696,7 @@ function clDayView(date) {
     <label class="row small" style="gap:6px;padding-bottom:8px"><input type="checkbox" data-ch="cld-f" data-k="need"${F.need ? ' checked' : ''}>확인 필요만</label>
     <input id="cld-q" type="search" placeholder="🔍 학생 검색 · 초성 가능" aria-label="학생 검색" autocomplete="off" value="${esc(F.q || '')}" style="width:200px;margin-left:auto"></div><!--CLSPLIT-->
   ${nSel ? `<div class="banner" role="status" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${nSel}명 선택됨</b><button class="btn sm pri" data-act="cld-att">출석 처리</button><button class="btn sm" data-act="cld-done" title="선택한 학생의 이번 클리닉 과제를 전부 완료로 표시해요">선택한 학생 과제 전부 완료</button><button class="btn sm" data-act="cld-sel-clear">선택 해제</button></div>` : ''}
-  <section class="card stack"><div class="tbl-wrap"><table><thead><tr><th style="width:30px"><input type="checkbox" data-act="cld-sel-all" aria-label="화면의 학생 전체 선택"${list.length && nSel === list.length ? ' checked' : ''}></th><th>학생</th><th>반</th><th>시간</th><th>출석</th><th class="num">과제 완료</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="empty">조건에 맞는 학생이 없어요.</td></tr>'}</tbody></table></div>
+  <section class="card stack"><div class="tbl-wrap"><table><thead><tr><th style="width:30px"><input type="checkbox" data-act="cld-sel-all" aria-label="화면의 학생 전체 선택"${list.length && nSel === list.length ? ' checked' : ''}></th><th>학생</th><th>반</th><th>시간</th><th>출석</th><th>귀가</th><th class="num">과제 완료</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="empty">조건에 맞는 학생이 없어요.</td></tr>'}</tbody></table></div>
     <div class="small muted">출석을 고르면 그때 시각이 기록돼요(시각을 누르면 고칠 수 있어요). 교재별 과제 체크·메모·이번 주 시간 변경은 [상세]에서 학생 줄 바로 아래에서 해요.</div></section>
   ${open.length ? `<details class="card"><summary><b>이전 주 미완료 ${open.length}건</b></summary><div class="tbl-wrap" style="margin-top:6px"><table><thead><tr><th>날짜</th><th>학생</th><th>내용</th></tr></thead><tbody>${open.map(x => `<tr><td style="white-space:nowrap">${mdw(x.d)}</td><td style="white-space:nowrap">${esc(x.name)} <span class="muted small">${esc(x.cls)}</span></td><td>${esc(x.m)}</td></tr>`).join('')}</tbody></table></div></details>` : '<div class="small muted">이전 주 미완료 없음</div>'}`;
 }
@@ -4717,6 +4721,12 @@ ACT['cld-sel-clear'] = () => { S.ui.clSel = {}; render(); };
 ACT['cld-open'] = b => { S.ui.clDetail = S.ui.clDetail === b.dataset.s ? null : b.dataset.s; render(); const el = document.getElementById('cld-detail'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
 ACT['cld-close'] = () => { S.ui.clDetail = null; render(); };
 ACT['cld-nav'] = b => { const list = clDayList(clDate()); const i = list.findIndex(r => r.s.id === S.ui.clDetail); const j = i + (+b.dataset.n); if (i < 0 || j < 0 || j >= list.length) return; S.ui.clDetail = list[j].s.id; render(); const el = document.getElementById('cld-detail'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
+ACT['cld-lv'] = b => { const d = clDate(); clSet(d, b.dataset.s, 'lv', nowHM()); autoCommit('clinic', `${md(d)} 클리닉 귀가 기록`); render(); };
+ACT['cld-lv-x'] = b => { const d = clDate(); clSet(d, b.dataset.s, 'lv', ''); S.ui.clLvEdit = null; autoCommit('clinic', `${md(d)} 클리닉 귀가 기록 삭제`); render(); };
+ACT['cld-lv-edit'] = b => { S.ui.clLvEdit = b.dataset.s; render(); const i = document.querySelector('input[data-ch="cld-lv"]'); if (i) i.focus(); };
+CH['cld-lv'] = el => { const d = clDate(); if (/^\d{2}:\d{2}$/.test(el.value)) clSet(d, el.dataset.s, 'lv', el.value); S.ui.clLvEdit = null; autoCommit('clinic', `${md(d)} 클리닉 귀가 시각 수정`); render(); };
+/* 시각 입력칸에서 다른 곳을 누르면 원래 표시로 돌아가요 */
+document.addEventListener('focusout', e => { const t = e.target; if (!t || !t.matches || !t.matches('input[data-ch="cld-at"],input[data-ch="cld-lv"]')) return; setTimeout(() => { if (document.activeElement === t) return; const k = t.dataset.ch === 'cld-lv' ? 'clLvEdit' : 'clAtEdit'; if (S.ui[k] === t.dataset.s) { S.ui[k] = null; render(); } }, 120); });
 ACT['cld-at-edit'] = b => { S.ui.clAtEdit = b.dataset.s; render(); const i = document.querySelector('input[data-ch="cld-at"]'); if (i) i.focus(); };
 CH['cld-at'] = el => { const d = clDate(); if (/^\d{2}:\d{2}$/.test(el.value)) clSet(d, el.dataset.s, 'at', el.value); S.ui.clAtEdit = null; autoCommit('clinic', `${md(d)} 클리닉 출석 시각 수정`); render(); };
 function cldApply(label, sids, fn) {
@@ -4746,7 +4756,7 @@ function clSearchHtml(date) {
 document.addEventListener('input', ev => { const el = ev.target; if (el && el.id === 'cl-q') { S.ui.clQ = el.value; const a = $('#cl-sr'), r = $('#cl-rest'); if (a) a.innerHTML = clSearchHtml(clDate()); if (r) r.hidden = !!el.value.trim(); } });
 CH['cl-edit'] = el => {
   const s = S.roster.students.find(x => x.id === el.dataset.s); const v = el.dataset.bool ? el.checked : el.value.trim();
-  clSet(el.dataset.d, el.dataset.s, el.dataset.f, v); if (el.dataset.f === 'a') { if (v === '출석' || v === '지각') { if (!clLog(el.dataset.d, el.dataset.s).at) clSet(el.dataset.d, el.dataset.s, 'at', nowHM()); } else clSet(el.dataset.d, el.dataset.s, 'at', ''); } if (el.dataset.f === 'a') bgFromAtt(el.dataset.d, el.dataset.s, v); commit('clinic', `클리닉 ${md(el.dataset.d)} 기록: ${s ? s.name : ''}`);
+  clSet(el.dataset.d, el.dataset.s, el.dataset.f, v); if (el.dataset.f === 'a') { if (v === '출석' || v === '지각') { if (!clLog(el.dataset.d, el.dataset.s).at) clSet(el.dataset.d, el.dataset.s, 'at', nowHM()); } else { clSet(el.dataset.d, el.dataset.s, 'at', ''); clSet(el.dataset.d, el.dataset.s, 'lv', ''); } } if (el.dataset.f === 'a') bgFromAtt(el.dataset.d, el.dataset.s, v); commit('clinic', `클리닉 ${md(el.dataset.d)} 기록: ${s ? s.name : ''}`);
   if (['a', 'm', 'f'].includes(el.dataset.f)) render();
 };
 CH['mk-date'] = el => { const s = S.roster.students.find(x => x.id === el.dataset.s); clSet(el.dataset.d, el.dataset.s, 'mk', el.value); bgFromMk(el.dataset.d, el.dataset.s, el.value); commit('clinic', `클리닉 보강일: ${s ? s.name : ''} ${el.value ? md(el.value) : '지움'}`); render(); };
@@ -4917,7 +4927,7 @@ function clTable(date) {
         } else {
           [c.cm.t, c.cm.a, c.cm.s].forEach(v => { if (v) r += td(''); });
         }
-        r += td(s.lec || '') + td(indivText(date, s).split(' / ').join('\n')) + td([e.a === '결석' ? '결석' : '', e.m].filter(Boolean).join(' / '));
+        r += td(s.lec || '') + td(indivText(date, s).split(' / ').join('\n')) + td([e.a === '결석' ? '결석' : '', e.lv && e.a !== '결석' ? '귀가 ' + e.lv : '', e.m].filter(Boolean).join(' / '));
         h += r + '</tr>';
       });
     });
@@ -4966,7 +4976,7 @@ function clModel(date) {
       vmerge(13, c.cm.l ? String(c.cm.l).split(' / ').join('\n') : '', 4);
       c.list.forEach((s, i) => {
         const k = r0 + i; const e = clLog(date, s.id);
-        put(k, 3, s.name + (tmOf(date, s) ? ` (${tmTxt(tmOf(date, s))})` : ''), 4); put(k, 4, e.a === '결석' ? '결석' : '', 4);
+        put(k, 3, s.name + (tmOf(date, s) ? ` (${tmTxt(tmOf(date, s))})` : ''), 4); put(k, 4, e.a === '결석' ? '결석' : (e.lv && (e.a === '출석' || e.a === '지각') ? '귀가' + String.fromCharCode(10) + e.lv : ''), 4);
         put(k, 14, s.lec || '', s.lec ? 7 : 5);
         const ind = [indivText(date, s).split(' / ').filter(Boolean).join('\n'), e.m ? '메모: ' + e.m : ''].filter(Boolean).join('\n');
         put(k, 15, ind, ind ? 6 : 4); heights[k] = Math.round(Math.min(87.95, Math.max(56.25, 750 / total)) * 100) / 100;
@@ -5193,7 +5203,7 @@ ACT['cl-xls'] = async () => {
 };
 ACT['cl-copy'] = () => {
   const date = clDate(); const lines = [['시간', '반', '이름', '누적테스트', '최상위', 'A급', '쎈', '강의노트 범위', '강의노트 확인', '개별 추가과제', '출결·메모'].join('\t')];
-  clGrid(date).forEach(g => g.byC.forEach(c => c.list.forEach((s, i) => { const e = clLog(date, s.id); lines.push([g.lab.replace('\n', ' '), c.cls.name, s.name, i ? '' : c.nt, i ? '' : (c.cm.t || ''), i ? '' : (c.cm.a || ''), i ? '' : (c.cm.s || ''), i ? '' : (c.cm.l || ''), s.lec || '', indivText(date, s), [e.a === '결석' ? '결석' : '', e.m].filter(Boolean).join(' / ')].join('\t')); })));
+  clGrid(date).forEach(g => g.byC.forEach(c => c.list.forEach((s, i) => { const e = clLog(date, s.id); lines.push([g.lab.replace('\n', ' '), c.cls.name, s.name, i ? '' : c.nt, i ? '' : (c.cm.t || ''), i ? '' : (c.cm.a || ''), i ? '' : (c.cm.s || ''), i ? '' : (c.cm.l || ''), s.lec || '', indivText(date, s), [e.a === '결석' ? '결석' : '', e.lv && e.a !== '결석' ? '귀가 ' + e.lv : '', e.m].filter(Boolean).join(' / ')].join('\t')); })));
   copyText(lines.join('\n'));
 };
 
